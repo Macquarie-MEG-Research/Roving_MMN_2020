@@ -42,6 +42,10 @@ group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' 
 group_list = {'younger', 'older'};
 
 
+% Perform baseline correction before computing ERF?
+DO_BASELINE = true;
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 2. Global field power (separately for young & old)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -62,27 +66,29 @@ for i=1:length(group_list)
     for sub=1:length(idx)
         cd([folders(idx(sub)).name '\\ReTHM\\']);
 
-        %load('deviant_ave.mat')
-        %load('predeviant_ave.mat')
-        
-        % Re-compute ERF after doing baseline correction on individual epochs
-        load('deviant.mat')
-        load('predeviant.mat')
+        if ~DO_BASELINE % if no baseline correction needed, just load the saved ERFs (ie. ave)
+            load('deviant_ave.mat')
+            load('predeviant_ave.mat')
+            
+        else % otherwise, load the epoched data, perform baseline correction then compute ERF
+            load('deviant.mat')
+            load('predeviant.mat')
 
-        % do baseline correction on individual epochs
-        cfg = [];
-        cfg.baseline = [-0.1 0];
-        deviant = ft_timelockbaseline(cfg, deviant);
+            % do baseline correction on individual epochs
+            cfg = [];
+            cfg.baseline = [-0.1 0];
+            deviant = ft_timelockbaseline(cfg, deviant);
 
-        cfg = [];
-        cfg.baseline = [-0.1 0];
-        predeviant = ft_timelockbaseline(cfg, predeviant);
+            cfg = [];
+            cfg.baseline = [-0.1 0];
+            predeviant = ft_timelockbaseline(cfg, predeviant);
 
-        % Compute ERFs
-        deviant_ave                  = ft_timelockanalysis([], deviant);
-        %save('deviant_ave_baseline_-100_to_0ms.mat', 'deviant_ave');
-        predeviant_ave               = ft_timelockanalysis([], predeviant);
-        %save('predeviant_ave_baseline_-100_to_0ms.mat', 'predeviant_ave');
+            % Compute ERFs
+            deviant_ave                  = ft_timelockanalysis([], deviant);
+            %save('deviant_ave_baseline_-100_to_0ms.mat', 'deviant_ave');
+            predeviant_ave               = ft_timelockanalysis([], predeviant);
+            %save('predeviant_ave_baseline_-100_to_0ms.mat', 'predeviant_ave');
+        end
         
         standard_ave = predeviant_ave; % rename
 
