@@ -25,11 +25,11 @@ fname = filename;
 
 hdr                     = ft_read_header(filename,'dataformat','yokogawa_con'); %hdr to get Fs etc.
 
-load ICA_rc.mat;        
+load ICA_rc.mat;     % load 'data' from Step 4  
 
 %% interpolate bad channels
 
-load grad_trans_ChildMMN.mat
+load grad_trans.mat
 load lay
 
 %define or load neighours here
@@ -54,6 +54,7 @@ cfg.grad          = grad_trans; %structure with gradiometer definition, see FT_D
 cfg.senstype            = 'meg';
 data = ft_channelrepair(cfg, data)
 
+
 %% Trigger-based trial selection
 cfg                         = [];
 cfg.dataset                 = filename;
@@ -69,80 +70,80 @@ cfg.Last_Channel        = 158; % Last trigger channel   158
 % cfg.First_Channel       = 194; % First trigger channel
 % cfg.Last_Channel        = 200; % Last trigger channel
 % cfg.Audio_Channel       = 167; % -1 for none
- if ismember (filename(1:4),Subj_correctedTrig) 
+if ismember (filename(1:4),Subj_correctedTrig) 
     cfg.Audio_Channel       = -1; % 0 for none  135
     cfg.fixed_offset        = 42; %defualt = []; 42ms for those without audio channel. 
- else   
+else   
     cfg.Audio_Channel       = 151; % 0 for none  135
     cfg.fixed_offset        = []; 
- end;
+end
 cfg.trialfun            = 'FindTriggers_AudioCh'; %
 cfg                     = ft_definetrial(cfg);
 
-alldata                     = ft_redefinetrial(cfg,data);
+alldata                     = ft_redefinetrial(cfg, data);
 
 event                       = cfg.event;
 trl                         = cfg.trl;
 
- save event event
- save trl trl
+save event event
+save trl trl
 
-
-% Find trials with NaNs
-    reject_ind = [];
-    count = 1;
-    
-    for i = 1: length(alldata.trial)
-        aa = find(cell2mat(cellfun(@isnan, alldata.trial(i),'UniformOutput',false)));
-        if ~isempty(aa)
-            reject_ind(count,1) = i;
-            count = count+1;
-        end
-    end
-
-
-    % Get sequence of tones
-    event = alldata.cfg.event;
-    ggg = [];
-    for i = 1:length(event)
-       ggg(i,1) = event(i).value;
-    end
-    
-    % Find the deviant trials
-    deviant_trials = find(ggg == 1);
-    
-    % Remove first trial
-    deviant_trials(1) = [];
-    
-    % Now found deviant trials in which previous sequence length is greater than 2
-    fff = ggg(deviant_trials-1);
-    deviant_trials2 = deviant_trials(find(fff > 2));
-
-    % Get trial before (predeviant)
-    predeviant_trials = deviant_trials2-1;
-
-    % Now remove trials with NaNs
-    deviant_trials2 = deviant_trials2(~ismember(deviant_trials2,reject_ind));
-    fprintf('Found %d deviant trials\n', length(deviant_trials2));
-    
-    predeviant_trials = predeviant_trials(~ismember(predeviant_trials,reject_ind));
-    fprintf('Found %d predeviant trials\n', length(predeviant_trials));
-
-    % Select data
-
-    cfg = [];
-    cfg.trials = deviant_trials2;
-    deviant = ft_selectdata(cfg,alldata);
-    
-    cfg.trials = predeviant_trials;
-    predeviant = ft_selectdata(cfg,alldata);
-
-    % Save 
-
-    disp('Saving data');
-    save deviant deviant
-    save predeviant predeviant
  
+% Find trials with NaNs
+reject_ind = [];
+count = 1;
+
+for i = 1: length(alldata.trial)
+    aa = find(cell2mat(cellfun(@isnan, alldata.trial(i),'UniformOutput',false)));
+    if ~isempty(aa)
+        reject_ind(count,1) = i;
+        count = count+1;
+    end
+end
+
+
+% Get sequence of tones
+event = alldata.cfg.event;
+ggg = [];
+for i = 1:length(event)
+   ggg(i,1) = event(i).value;
+end
+
+% Find the deviant trials
+deviant_trials = find(ggg == 1);
+
+% Remove first trial
+deviant_trials(1) = [];
+
+% Now find deviant trials in which previous sequence length is greater than 2
+fff = ggg(deviant_trials - 1);
+deviant_trials2 = deviant_trials(find(fff > 2));
+
+% Get trial before (predeviant)
+predeviant_trials = deviant_trials2 - 1;
+
+% Now remove trials with NaNs
+deviant_trials2 = deviant_trials2(~ismember(deviant_trials2,reject_ind));
+fprintf('Found %d deviant trials\n', length(deviant_trials2));
+
+predeviant_trials = predeviant_trials(~ismember(predeviant_trials,reject_ind));
+fprintf('Found %d predeviant trials\n', length(predeviant_trials));
+
+% Select data
+
+cfg = [];
+cfg.trials = deviant_trials2;
+deviant = ft_selectdata(cfg,alldata);
+
+cfg.trials = predeviant_trials;
+predeviant = ft_selectdata(cfg,alldata);
+
+% Save 
+
+disp('Saving data');
+save deviant deviant
+save predeviant predeviant
+
 %{
 reject_ind = [];
 for i = 1: length(alldata.trial)
@@ -233,7 +234,7 @@ trigger_values = cell2mat({event_clean.value});
 % predeviant                  = ft_redefinetrial(cfg,data_clean);
 % save predeviant predeviant
 %}
-%% Some plotting and other steps - not requried for group analysis
+
 
 %%Averaging
 cfg                          = [];
@@ -245,6 +246,9 @@ cfg                          = [];
 % cfg.keeptrials               = 'yes';
 predeviant_ave                  = ft_timelockanalysis(cfg,predeviant);
 save predeviant_ave predeviant_ave
+
+
+%% Some plotting and other steps - not requried for group analysis
 
 % Calculate the difference 
 cfg                          = [];

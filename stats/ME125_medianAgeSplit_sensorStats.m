@@ -29,7 +29,7 @@ load('lay.mat');
 load ('neighbours_125.mat')
 
 % PLEASE SPECIFY where to read MEG data from:
-data_path = '..\\ME125_roving_Phase1_data_37kids\\';
+data_path = '..\\..\\ME125_roving_Phase1_data_37kids\\';
 
 % PLEASE SPECIFY where to output results:
 output_path = ['D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Results_young-vs-old\\']; % full path required on Windows, due to back-slash issues
