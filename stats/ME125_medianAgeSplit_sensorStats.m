@@ -32,7 +32,7 @@ load ('neighbours_125.mat')
 data_path = '..\\..\\ME125_roving_Phase1_data_37kids\\';
 
 % PLEASE SPECIFY where to output results:
-output_path = ['D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Results_young-vs-old\\']; % full path required on Windows, due to back-slash issues
+output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Results_young-vs-old\\'; % full path required on Windows, due to back-slash issues
 
 
 % PLEASE SPECIFY the groups of participants (for comparison):
@@ -43,7 +43,7 @@ group_list = {'younger', 'older'};
 
 
 % Perform baseline correction before computing ERF?
-DO_BASELINE = true;
+DO_BASELINE = false;
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -235,9 +235,8 @@ end
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\
 
 %TODO% 
-% * Some errors to fix
-% * plot average of significant sensors (currently just plotting t-values)
-
+% * plot average of significant sensors (instead of plotting t-values)
+% * Some errors to fix??
 
 for i=1:length(group_list)
 
