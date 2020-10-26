@@ -28,24 +28,24 @@ ft_defaults % This loads the rest of the defaults
 load('lay.mat');
 load ('neighbours_125.mat')
 
-% PLEASE SPECIFY where to read MEG data from:
+% PLEASE SPECIFY:
+% (1) where to read MEG data from
 data_path = '..\\..\\ME125_roving_Phase1_data_37kids\\';
 
-% PLEASE SPECIFY where to output results:
+% (2) where to store results:
 output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Results_young-vs-old\\'; % full path required on Windows, due to back-slash issues
 
-
-% PLEASE SPECIFY the groups of participants (for comparison):
+% (3) the 2 groups of participants to compare:
 group.older   = {'2913' '2787' '2697' '2702' '2786' '2716' '2698' '2712' '2872' '2703' '2888' '2811' '2696' '2713' '2904' '2854' '2699' '2858'}; % 18 kids, >=5yo
 group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' '2897' '2683' '2695' '2739' '2810' '2632' '2667' '2875' '2912' '2681'}; % 19 kids, <5yo
 
 group_list = {'younger', 'older'};
 
-
-% Perform baseline correction before computing ERF?
+% (4) perform baseline correction? if so, specify the baseline interval
 DO_BASELINE = false;
+ERF_BASELINE = [-0.1 0];
 
-
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 2. Global field power (separately for young & old)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -76,11 +76,11 @@ for i=1:length(group_list)
 
             % do baseline correction on individual epochs
             cfg = [];
-            cfg.baseline = [-0.1 0];
+            cfg.baseline = ERF_BASELINE;
             deviant = ft_timelockbaseline(cfg, deviant);
 
             cfg = [];
-            cfg.baseline = [-0.1 0];
+            cfg.baseline = ERF_BASELINE;
             predeviant = ft_timelockbaseline(cfg, predeviant);
 
             % Compute ERFs
@@ -132,6 +132,8 @@ for i=1:length(group_list)
     GA_planar_Dev       = ft_timelockgrandaverage(cfg,avg_deviant_planar_all{:});
     GA_planar_MMF       = ft_timelockgrandaverage(cfg,avg_mmf_planar_all{:});
     % "{:}" means to use data from all elements of the variable
+
+    save([output_path, 'GA_', group_list{i}], 'GA_planar_standard', 'GA_planar_Dev', 'GA_planar_MMF');
 
     cfg = [];
     cfg.method    = 'power';
@@ -245,7 +247,8 @@ for i=1:length(group_list)
     load ([output_path,'avg_standard_planar_all_',group_list{i}]);
     load ([output_path,'avg_deviant_planar_all_',group_list{i}]);
     load ([output_path,'stat_wholeEpoch_',group_list{i}]);
-
+    
+    load ([output_path,'GA_',group_list{i}]);
 
     % Author: Robert Seymour (robert.seymour@mq.edu.au)
     %
@@ -272,24 +275,26 @@ for i=1:length(group_list)
 
     alpha        = 0.05;
     x_lims       = [0 0.4];
-    save_to_file = 'no';
+    save_to_file = 'yes';
 
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+    cd(orig);
 
     ft_warning('This function only supports plotting POSITIVE clusters at present');
 
     % FIX HERE - only creates plots for positive clusters; but it does still compute\
     % variables for pos & neg clusters, just doesn't plot them all
-    cd(orig);
+    
+    % At the moment, there are no neg MMF clusters 
 
     % Find the clusters under the specified alpha
     if isfield(stat,'posclusters')
         pos_cluster_pvals = [stat.posclusters(:).prob];
 
-
         % If this array is empty, return error
         if isempty(pos_cluster_pvals)
-            error('NO POSITIVE CLUSTERS BELOW ALPHA LEVEL');
+            error('NO POSITIVE CLUSTERS FOUND');
         else
             % Find the p-values of each cluster
             pos_signif_clust = find(pos_cluster_pvals < alpha);
@@ -310,7 +315,7 @@ for i=1:length(group_list)
                 pos = ismember(stat.posclusterslabelmat, pos_signif_clust(t));
                 highlight_chan = any(pos(:,:)');
 
-                pos_cluster_mask(t,:)=highlight_chan;
+                %pos_cluster_mask(t,:)=highlight_chan;
 
                 % Get the significant times
                 index = (any(stat.posclusterslabelmat == pos_signif_clust(t)));
@@ -327,10 +332,10 @@ for i=1:length(group_list)
                 avg_chan  = mean(data_for_peak.stat(:,:));
                 time_of_peak = data_for_peak.time(find(max(avg_chan)==avg_chan));
 
-                %% Singleplot
+                %% Singleplot: t-values of sig sensors
                 cfg                 = [];
                 cfg.channel         = stat.label(highlight_chan');
-                cfg.maskparameter   = 'index';
+                cfg.maskparameter   = 'index'; % automatically add shaded region
                 cfg.xlim            = x_lims;
                 cfg.linestyle       = '-k';
                 cfg.graphcolor      = 'k';
@@ -352,23 +357,73 @@ for i=1:length(group_list)
                 set(gca,'fontsize', 20);
                 set(gca, 'Layer','top');
 
-
                 xlabel('Time (sec)','FontSize',24);
                 ylabel('t-value','FontSize',24);
 
                 % Save as png
                 if strcmp(save_to_file,'yes')
                     disp('Saving figure to .png file');
-                    %print(sprintf(['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/png/',...
-                    %    group_list{i},'_singleplot_pos_cluster_%d'],t),'-dpng','-r200');
-                    print(sprintf([output_path, group_list{i}, '_singleplot_pos_cluster_%d'],t),'-dpng','-r200');
-
+                    print(sprintf([output_path, group_list{i}, '_tvalues_pos_cluster_%d'],t),'-dpng','-r200');
                 else
                     disp('Not saving figure to file');
                 end
 
+                %% Singleplot: average amplitude of sig sensors               
+                figure('Name', 'Average of significant channels');
+                
+                cfg       = [];
+                cfg.title = ' '; % hide the display of channel names at the top
+                cfg.channel                  = stat.label(highlight_chan');
+                cfg.baseline                 = ERF_BASELINE; % makes no diff if we've already done baseline correction earlier
+                cfg.xlim                     = [-0.1 0.4];
+                cfg.graphcolor               = 'brk';
+                cfg.linestyle                = '-k';
+                cfg.linewidth                = 3;
+                cfg.showlabels               = 'yes';
+                cfg.fontsize                 = 6;
+                ft_singleplotER(cfg, GA_planar_standard, GA_planar_Dev, GA_planar_MMF); hold on;
+                legend('Predeviant','Deviant','MMF')
+    
+                % Give the title
+                title(sprintf('Cluster: #%d\n Time:  %.3fs to %.3fs\nPeak: %.3fs' ...
+                    ,t,time_for_topo(1),...
+                    time_for_topo(end),time_of_peak));
+                
+                x0=10;
+                y0=10;
+                width=800;
+                height=550;
+                set(gcf,'position',[x0,y0,width,height]) % specify the size of the figure (on screen)
 
+                set(gca,'fontsize', 20);
+                set(gca, 'Layer','top');
 
+                xticks([-0.1:0.1:0.4]); % force it to show all tick values
+                xlabel('Time (sec)','FontSize',24);
+                ylabel('Tesla','FontSize',24);
+                box on; % draw a border around the figure
+
+                % create shaded region indicating effect duration
+                start_time = time_for_topo(1);
+                end_time = time_for_topo(end);
+                ylimits = ylim; ylow = ylimits(1); yhigh = ylimits(2);
+                x = [start_time end_time end_time start_time]; % specify x,y coordinates of the 4 corners
+                y = [ylow ylow yhigh yhigh];
+                % use alpha to set transparency 
+                alpha = 0.3;
+                patch(x,y,'black', 'FaceAlpha',alpha, 'HandleVisibility','off') % draw the shade 
+                    % (turn off HandleVisibility so it won't show up in the legends)
+                ylim(ylimits); % ensure ylim doesn't get expanded
+
+                % Save as png
+                if strcmp(save_to_file,'yes')
+                    disp('Saving figure to .png file');
+                    print(sprintf([output_path, group_list{i}, '_avg_amplitude_pos_cluster_%d'],t),'-dpng','-r200');
+                else
+                    disp('Not saving figure to file');
+                end
+                
+                
                 %% Topoplot
                 cfg                  = [];
                 cfg.interpolation    = 'v4';
@@ -401,7 +456,6 @@ for i=1:length(group_list)
                     %print(sprintf(['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/png/',...
                     %    group_list{i},'_topoplot_pos_cluster_%d'],t),'-dpng','-r200');
                     print(sprintf([output_path,group_list{i},'_topoplot_pos_cluster_%d'],t),'-dpng','-r200');
-
                 else
                     disp('Not saving figure to file');
                 end
@@ -523,7 +577,7 @@ if isfield(stat,'posclusters')
             pos = ismember(stat.posclusterslabelmat, pos_signif_clust(t));
             highlight_chan = any(pos(:,:)');
 
-            pos_cluster_mask(t,:)=highlight_chan;
+            %pos_cluster_mask(t,:)=highlight_chan;
 
             % Get the significant times
             index = (any(stat.posclusterslabelmat == pos_signif_clust(t)));
