@@ -29,23 +29,30 @@ load('lay.mat');
 load ('neighbours_125.mat')
 
 % PLEASE SPECIFY:
-% (1) where to read MEG data from
+% (1) Folder locations 
+
+% where to read MEG data from:
 data_path = '..\\..\\ME125_roving_Phase1_data_37kids\\';
 
-% (2) where to store results:
+% where to store results:
 output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Results_young-vs-old\\'; % full path required on Windows, due to back-slash issues
 
-% (3) the 2 groups of participants to compare:
+% (2) The two groups of participants to compare:
 group.older   = {'2913' '2787' '2697' '2702' '2786' '2716' '2698' '2712' '2872' '2703' '2888' '2811' '2696' '2713' '2904' '2854' '2699' '2858'}; % 18 kids, >=5yo
 group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' '2897' '2683' '2695' '2739' '2810' '2632' '2667' '2875' '2912' '2681'}; % 19 kids, <5yo
 
 group_list = {'younger', 'older'};
 
-% (4) perform baseline correction? if so, specify the baseline interval
+% (3) Perform baseline correction? if so, specify the baseline interval
 DO_BASELINE = false;
 ERF_BASELINE = [-0.1 0];
 
-    
+% (4) Other settings
+alpha        = 0.05;  % threshold for stats
+%x_lims       = [0 0.4];
+save_to_file = 'yes'; % save figures to file?
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 2. Global field power (separately for young & old)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -176,27 +183,20 @@ for i=1:length(group_list)
     height=1000;
     set(gcf,'position',[x0,y0,width,height])
 
-    %print(['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/png/', group_list{i},'_Child_MMN_GFP_planar'],'-dpng');
-    print([output_path group_list{i} '_Child_GFP_planar'],'-dpng');
-
+    print([output_path 'GFP_planar_' group_list{i}],'-dpng');
 
     % note to self: This looked wrong at first glance (stand_ave.grad.type?)
     % but it's actually fine. PSF: This is not a problem as the grad structure is static. I.e. the geometry of the sensors is not changing between conditions.
 
-
+    % save individual-subjects ERFs
     for k = 1:length(avg_deviant_planar_all)
         avg_standard_planar_all{1,k}.grad.type = deviant_ave.grad.type;
         avg_deviant_planar_all{1,k}.grad.type = deviant_ave.grad.type;
     end
 
-    %save (['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/','avg_deviant_planar_all_',group_list{i}],'avg_deviant_planar_all')
-    %save (['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/','avg_standard_planar_all_',group_list{i}],'avg_standard_planar_all')
-    %save (['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/','avg_mmf_planar_all_',group_list{i}],'avg_mmf_planar_all')
-    save ([output_path,'avg_deviant_planar_all_',group_list{i}],'avg_deviant_planar_all')
-    save ([output_path,'avg_standard_planar_all_',group_list{i}],'avg_standard_planar_all')
-    save ([output_path,'avg_mmf_planar_all_',group_list{i}],'avg_mmf_planar_all')
+    save ([output_path,'ERF_planar_',group_list{i}], 'avg_deviant_planar_all','avg_standard_planar_all','avg_mmf_planar_all')
 
-
+    
     %% Settings for NPCBRPT
     clear stat_wholeEpoch
     %     clear (['stat_wholeEpoch_',group_list{i}])
@@ -236,18 +236,10 @@ end
 %% 3. Plot the clusters (plot sensor-level statistics)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\
 
-%TODO% 
-% * plot average of significant sensors (instead of plotting t-values)
-% * Some errors to fix??
-
 for i=1:length(group_list)
 
     % Load data generated from code above
-    %addpath '/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/';
-    load ([output_path,'avg_standard_planar_all_',group_list{i}]);
-    load ([output_path,'avg_deviant_planar_all_',group_list{i}]);
     load ([output_path,'stat_wholeEpoch_',group_list{i}]);
-    
     load ([output_path,'GA_',group_list{i}]);
 
     % Author: Robert Seymour (robert.seymour@mq.edu.au)
@@ -273,22 +265,16 @@ for i=1:length(group_list)
 
     stat   = stat_wholeEpoch;
 
-    alpha        = 0.05;
-    x_lims       = [0 0.4];
-    save_to_file = 'yes';
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    cd(orig);
-
     ft_warning('This function only supports plotting POSITIVE clusters at present');
 
     % FIX HERE - only creates plots for positive clusters; but it does still compute\
     % variables for pos & neg clusters, just doesn't plot them all
     
-    % At the moment, there are no neg MMF clusters 
+    % Note: At the moment, there are no neg MMF clusters anyway.
+    %       But if need to plot neg clusters, just copy the plotting code 
+    %       from the "GROUP COMPARISON" section below
 
-    % Find the clusters under the specified alpha
+    % Find positive clusters under the specified alpha
     if isfield(stat,'posclusters')
         pos_cluster_pvals = [stat.posclusters(:).prob];
 
@@ -336,7 +322,7 @@ for i=1:length(group_list)
                 cfg                 = [];
                 cfg.channel         = stat.label(highlight_chan');
                 cfg.maskparameter   = 'index'; % automatically add shaded region
-                cfg.xlim            = x_lims;
+                cfg.xlim            = [0 0.4];
                 cfg.linestyle       = '-k';
                 cfg.graphcolor      = 'k';
                 cfg.linewidth       = 6;
@@ -409,9 +395,7 @@ for i=1:length(group_list)
                 ylimits = ylim; ylow = ylimits(1); yhigh = ylimits(2);
                 x = [start_time end_time end_time start_time]; % specify x,y coordinates of the 4 corners
                 y = [ylow ylow yhigh yhigh];
-                % use alpha to set transparency 
-                alpha = 0.3;
-                patch(x,y,'black', 'FaceAlpha',alpha, 'HandleVisibility','off') % draw the shade 
+                patch(x,y,'black', 'FaceAlpha',0.3, 'HandleVisibility','off') % draw the shade 
                     % (turn off HandleVisibility so it won't show up in the legends)
                 ylim(ylimits); % ensure ylim doesn't get expanded
 
@@ -463,9 +447,6 @@ for i=1:length(group_list)
             end
         end
     end
-    
-    %cd ('/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/subjects')
-    cd(orig)
 end
 
 
@@ -475,19 +456,19 @@ end
 % the null dist.
 % run these lines separately
 
-%load('/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/stat_wholeEpoch_older.mat')
+%{
 load([output_path 'stat_wholeEpoch_older.mat'])
 old_stat=stat_wholeEpoch;
 old_stat.posclusters.prob % where pos would = D > S
 old_stat.negclusters.prob % where pos would = S > D
 
-%load('/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/stat_wholeEpoch_younger.mat')
 load([output_path 'stat_wholeEpoch_younger.mat'])
 young_stat=stat_wholeEpoch;
 young_stat.posclusters.prob % where pos would = D > S. Needs to be < 0.05 to be sig.
 young_stat.negclusters.prob % where pos would = S > D
 
 % if error, probably = no cluster
+%}
 
 
 %%
@@ -496,13 +477,12 @@ young_stat.negclusters.prob % where pos would = S > D
 %                      (cluster-based t-test)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%cd '/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/';
 cd(output_path)
 
-load('avg_mmf_planar_all_older.mat')
+load('ERF_planar_older.mat')
 old_mmf = avg_mmf_planar_all;
 
-load('avg_mmf_planar_all_younger.mat')
+load('ERF_planar_younger.mat')
 young_mmf = avg_mmf_planar_all;
 
 
@@ -532,23 +512,21 @@ cfg.ivar        = 1; % row of design matrix that contains independent variable (
 %%% the ivar is 'group' (with two levels, young vs old
 
 
-stat_MMFbyGrp           = ft_timelockstatistics(cfg,old_mmf{:},young_mmf{:});
-
-%save (['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/','stat_MMFbyGrp'], 'stat_MMFbyGrp');
-save ([output_path,'stat_MMFbyGrp'], 'stat_MMFbyGrp');
+stat_MMFbyGroup           = ft_timelockstatistics(cfg,old_mmf{:},young_mmf{:});
+save ([output_path,'stat_MMFbyGroup'], 'stat_MMFbyGroup');
 
 
 % command window will print # pos and neg clusters BEFORE the correction
 % to find out how many remain after correction (run these lines
 % individually):
-
-stat_MMFbyGrp.posclusters.prob
-stat_MMFbyGrp.negclusters.prob % error probably cuz no neg clusters
-
+%{
+stat_MMFbyGroup.posclusters.prob
+stat_MMFbyGroup.negclusters.prob % error probably cuz no neg clusters
+%}
 
 %% plot stats
-
-stat=stat_MMFbyGrp;
+%{
+stat=stat_MMFbyGroup;
 
 % Find the clusters under the specified alpha
 if isfield(stat,'posclusters')
@@ -556,7 +534,7 @@ if isfield(stat,'posclusters')
 
     % If this array is empty, return error
     if isempty(pos_cluster_pvals)
-        error('NO POSITIVE CLUSTERS BELOW ALPHA LEVEL');
+        error('NO POSITIVE CLUSTERS FOUND');
     else
        % Find the p-values of each cluster
         pos_signif_clust = find(pos_cluster_pvals < alpha);
@@ -635,7 +613,6 @@ if isfield(stat,'posclusters')
             end
 
 
-
             %% Topoplot
             cfg                  = [];
             cfg.interpolation    = 'v4';
@@ -680,10 +657,11 @@ if isfield(stat,'posclusters')
         end
     end
 end
+%}
 
+%% Plot MMF old v young (with sig mask)
 
-
-%% plot MMM old v young (with sig mask)
+% NB. Not plotting the GFP, only plotting the channels (averaged) where the effect was
 
 % grand mean/a for old MMF & young MMF
 GA_old_mmf   = ft_timelockgrandaverage([],old_mmf{:});
@@ -691,33 +669,63 @@ GA_young_mmf = ft_timelockgrandaverage([],young_mmf{:});
 
 % mask_param = stat.mask;
 
-%% PLOT
-% NB. Not plotting the GFP, only plotting the channels (averaged) where the
-% effect was
-%close all
+%% 
+stat=stat_MMFbyGroup;
 
-% which cluster to plot
-cluster_n = 1; % select neg cluster #1, which is marginally sig
+% find neg clusters that are sig
+if isfield(stat,'negclusters')
+    neg_cluster_pvals = [stat.negclusters(:).prob];
 
-[x,y] = find(ismember(stat.negclusterslabelmat, cluster_n)); %find members of neg cluster #1
-figure;plot(GA_old_mmf.time,mean(GA_old_mmf.avg(sort(unique(x)),:)),'g','LineWidth',5) %average over channels within the cluster
-%ylim([-1e-15 2e-15]);
-hold on
-plot(GA_young_mmf.time,mean(GA_young_mmf.avg(sort(unique(x)),:)),'m','LineWidth',5)
-patch([min(y)/1000 min(y)/1000 max(y)/1000 max(y)/1000],[min(ylim) max(ylim) max(ylim) min(ylim)],'k','FaceAlpha',0.1) %shade between time limits of cluster
-%xlim([-0.1 0.5]) %zoom in
-title(sprintf('p = %.3f', stat.negclusters(cluster_n).prob));
-%title(sprintf('Cluster Time:  %.3fs to %.3fs\nCluster Peak: %.3fs' ...
-%    ,time_for_topo(1),...
-%    time_for_topo(end),time_of_peak));
-xlabel('Time (sec)');
-ylabel('Amplitude (Tesla/cm^{2})')
-legend('Older MMF','Younger MMF', 'Location','northwest')
-set(gca,'fontsize', 40);
-set(gcf,'position',[10,10,1400,1000])
+    % If this array is empty, return error
+    if isempty(neg_cluster_pvals)
+        error('NO NEGATIVE CLUSTERS FOUND');
+    else
+       % Find the p-values of each cluster
+        neg_signif_clust = find(neg_cluster_pvals < alpha);
+        
+        % Give the user some feedback in Command Window
+        fprintf('Negative Clusters below %.3f alpha level: %d\n',...
+            alpha,length(neg_signif_clust));
 
-%print(['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/png/','MMF_sigCluster_youngVold'],'-dpng');
-print([output_path 'MMF_sigCluster_young-vs-old'],'-dpng');
+        for t = 1:length(pos_signif_clust)
+            fprintf('Negative Cluster #%d: %.3f\n', neg_signif_clust(t),...
+                neg_cluster_pvals(neg_signif_clust(t)));
+        end
+
+        % For each cluster...
+        for t = 1:length(neg_signif_clust)
+            
+            % Get the significant times
+            index = (any(stat.negclusterslabelmat == neg_signif_clust(t)));
+            time_for_topo = stat.time(index');
+            
+            % Plot
+            [x,y] = find(ismember(stat.negclusterslabelmat, cluster_n));
+            figure;plot(GA_old_mmf.time,mean(GA_old_mmf.avg(sort(unique(x)),:)),'g','LineWidth',5) %average over channels within the cluster
+            ylim([-1e-15 1.5e-15]);
+            hold on
+            plot(GA_young_mmf.time,mean(GA_young_mmf.avg(sort(unique(x)),:)),'m','LineWidth',5)
+            patch([min(y)/1000 min(y)/1000 max(y)/1000 max(y)/1000],[min(ylim) max(ylim) max(ylim) min(ylim)],'k','FaceAlpha',0.1) %shade between time limits of cluster
+            %xlim([-0.1 0.5]) %zoom in
+            title(sprintf('Cluster Time:  %.3fs to %.3fs\n(p = %.3f)', ...
+                time_for_topo(1),time_for_topo(end), stat.negclusters(cluster_n).prob));
+            xlabel('Time (sec)');
+            ylabel('Amplitude (Tesla/cm^{2})')
+            legend('Older MMF','Younger MMF', 'Location','northwest')
+            set(gca,'fontsize', 40);
+            set(gcf,'position',[10,10,1400,1000])
+
+            % Save as png
+            if strcmp(save_to_file,'yes')
+                disp('Saving figure to .png file');
+                print(sprintf([output_path 'MMF_young-vs-old_neg_cluster_%d'], t),'-dpng');
+            else
+                disp('Not saving figure to file');
+            end
+
+        end
+    end
+end
 
 % see https://au.mathworks.com/help/matlab/ref/plot.html#btzitot-LineSpec
 % for plotting aesthetics
