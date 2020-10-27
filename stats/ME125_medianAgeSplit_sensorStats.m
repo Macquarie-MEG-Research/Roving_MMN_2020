@@ -33,15 +33,24 @@ load ('neighbours_125.mat')
 
 % where to read MEG data from:
 data_path = '..\\..\\ME125_roving_Phase1_data_37kids\\';
+%data_path = '..\\..\\ME125_roving_adult_data\\';
 
 % where to store results:
 output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Results_young-vs-old\\'; % full path required on Windows, due to back-slash issues
+%output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Results_adult\\'; 
 
-% (2) The two groups of participants to compare:
-group.older   = {'2913' '2787' '2697' '2702' '2786' '2716' '2698' '2712' '2872' '2703' '2888' '2811' '2696' '2713' '2904' '2854' '2699' '2858'}; % 18 kids, >=5yo
-group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' '2897' '2683' '2695' '2739' '2810' '2632' '2667' '2875' '2912' '2681'}; % 19 kids, <5yo
+% (2) The group(s) of participants to analyse: 
+% (if you specify two groups, e.g. 'younger', 'older', then these two 
+% groups will also be compared with each other at the end)
 
 group_list = {'younger', 'older'};
+%group_list = {'adult'};
+
+% These lists are already set up for this study - shouldn't need to touch them
+group.older   = {'2913' '2787' '2697' '2702' '2786' '2716' '2698' '2712' '2872' '2703' '2888' '2811' '2696' '2713' '2904' '2854' '2699' '2858'}; % 18 kids, >=5yo
+group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' '2897' '2683' '2695' '2739' '2810' '2632' '2667' '2875' '2912' '2681'}; % 19 kids, <5yo
+folders = dir([data_path '2*']);
+group.adult = vertcat({folders(:).name});
 
 % (3) Perform baseline correction? if so, specify the baseline interval
 DO_BASELINE = false;
@@ -71,7 +80,11 @@ for i=1:length(group_list)
     avg_mmf_planar_all         = [];
 
     for sub=1:length(idx)
-        cd([folders(idx(sub)).name '\\ReTHM\\']);
+        if strcmp(group_list{i}, 'adult')
+            cd([folders(idx(sub)).name '\\']);
+        else
+            cd([folders(idx(sub)).name '\\ReTHM\\']);
+        end
 
         if ~DO_BASELINE % if no baseline correction needed, just load the saved ERFs (ie. ave)
             load('deviant_ave.mat')
@@ -476,6 +489,12 @@ young_stat.negclusters.prob % where pos would = S > D
 %         GROUP COMPARISON - MMF in younger vs older kids
 %                      (cluster-based t-test)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% ONLY RUN THIS SECTION IF there are two groups specified at the top
+if length(group_list) ~= 2
+    error('Note: Only 1 group of participants were specified for analysis. Not performing any group comparison.'); % this will terminate the script
+end
+
 
 cd(output_path)
 
