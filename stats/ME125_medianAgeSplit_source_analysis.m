@@ -14,6 +14,8 @@
 
 %% 1. Add Fieldtrip and MQ_MEG_Scripts to your MATLAB path + other settings
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%{
 % 30/04/20: Changed paths from PSF to HR
 
 close all
@@ -34,50 +36,53 @@ path_to_MRI_library = ['/Users/42450500/Documents/MATLAB/fieldTrip/'...
 global ft_default
 ft_default.spmversion = 'spm12'; % Force SPM12, SPM8 doesn't go well with mac + 2017b
 ft_defaults % This loads the rest of the defaults
+%}
 
+
+mir = 'single_subj_T1.nii'; % standard brain from the MNI database
+%path_to_MRI_library = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % 2. Start the subject loop - NOT AGE SPLIT! Creating VEs for each subject
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 orig    = cd;
-folders = dir('3*');
+folders = dir('2*');
 
-for j=1:length(folders)
-    cd([orig,'/',folders(j).name])
+for j=14:length(folders)
+    cd([orig,'/',folders(j).name,'/ReTHM/'])
     
     % Load relevent info
     disp('Loading relevant data');
     load('deviant.mat');
-    load('standard.mat');
+    load('predeviant.mat');
     load('headmodel.mat');
     load('sourcemodel3d.mat');
     load('grad_trans.mat');
-    load('MEMES_output.mat');
+    %load('MEMES_output.mat');
+    load('mri_realigned.mat');
     
     %% Prepare VE points
-    
+    %
     % Here we are loading the MRI chosen during MEMES coreg (ages 2-5 to 7-5)
-    load([path_to_MRI_library '/' MEMES_output.MRI_winner...
-        '/mri_realigned.mat']);
+    %load([path_to_MRI_library '/' MEMES_output.MRI_winner...
+    %    '/mri_realigned.mat']);
     
     % Transform this MRI based on the two matrices computed during MEMES coreg
-    mri_realigned = ft_transform_geometry(MEMES_output.fid_matrix,...
+    %mri_realigned = ft_transform_geometry(MEMES_output.fid_matrix,...
+    %    mri_realigned);
+    mri_realigned = ft_transform_geometry(trans_matrix,...
         mri_realigned);
-    mri_realigned = ft_transform_geometry(MEMES_output.trans_matrix,...
-        mri_realigned);
-    
+    %{
     % Make a figure to check you've marked LPA and RPA the right way round(!)
     ft_determine_coordsys(mri_realigned, 'interactive', 'no');
     hold on; % add the subsequent objects to the figure
     drawnow; % workaround to prevent some MATLAB versions (2012b and 2014b) from crashing
     ft_plot_vol(headmodel);
     ft_plot_sens(grad_trans);
-    
-    % templates_dir      =
-    % '/Users/mq20096022/Documents/Matlab/fieldtrip-20200409/template/sourcemodel/'; % PS path
-    templates_dir        = '/Users/42450500/Documents/MATLAB/fieldTrip/fieldtrip-20200409/template/sourcemodel/';
-    temp                 = load([templates_dir, '/standard_sourcemodel3d5mm']); %/Users/42450500/Documents/MATLAB/fieldTrip/fieldtrip-20200213/template/sourcemodel
+    %}
+    %templates_dir        = '/Users/42450500/Documents/MATLAB/fieldTrip/fieldtrip-20200409/template/sourcemodel/';
+    temp                 = load('standard_sourcemodel3d5mm.mat'); 
     template_sourcemodel = temp.sourcemodel;
     template_sourcemodel = ft_convert_units(template_sourcemodel, 'mm');
     
@@ -101,7 +106,7 @@ for j=1:length(folders)
     cfg.grad       = grad_trans;
     cfg.headmodel  = headmodel; % individual headmodel (from coreg)
     cfg.reducerank = 2; % Should check this is appropriate - also check the rank of the data as we project out mouth artifacts earlier
-    cfg.channel    = deviants.label; % use the actual channels present in our data (i.e. ensure that rejected sensors are also removed here)
+    cfg.channel    = deviant.label; % use the actual channels present in our data (i.e. ensure that rejected sensors are also removed here)
     cfg.grid       = sourcemodel; % individual sourcemodel (warped from template grid)
     grid           = ft_prepare_leadfield(cfg); % sourcemodel + leadfield
     %lf = grid;  % computes the forward model for many dipole locations on a regular sourcemodel and stores it for efficient inverse modelling
@@ -113,17 +118,18 @@ for j=1:length(folders)
     ft_plot_sens(grad_trans, 'style', 'r*','edgealpha',0.3); view([90,90]);
     print('lf_headmodel_sens','-dpng','-r100');
     
+    %{
     %% Compute covariance matrix
     cfg                  = [];
     cfg.covariance       = 'yes';
     cfg.vartrllength     = 2;
     cfg.covariancewindow = [0 0.5];
-    avg_deviant          = ft_timelockanalysis(cfg,deviants);
-    avg_standard         = ft_timelockanalysis(cfg,standards);
+    avg_deviant          = ft_timelockanalysis(cfg, deviant);
+    avg_standard         = ft_timelockanalysis(cfg, predeviant);
     
     % Make a dummy variable with covariance matrices averaged
     avg_combined     = avg_deviant;
-    avg_combined.cov = (avg_deviant.cov+avg_standard.cov)./2;
+    avg_combined.cov = (avg_deviant.cov + avg_standard.cov) ./ 2;
     
     %% Source reconstruction
     % perform source reconstruction using the lcmv method
@@ -334,6 +340,7 @@ for j=1:length(folders)
         save VE_deviant VE_deviant
     end
     cd(orig)
+    %}
 end
 
 
@@ -346,6 +353,13 @@ group.older   = {'3105' '3149' '3153' '3154' '3159' '3160' '3163' '3164' '3186' 
 group.younger = {'3138' '3148' '3156' '3158' '3161' '3190' '3193' '3198' '3199' '3214' '3217' '3261' '3262' '3266' '3267' '3277' '3279' '3283'};
 
 group_list = {'younger','older'};
+
+
+
+
+
+
+
 
 %% source analysis (separately for young & old)
 

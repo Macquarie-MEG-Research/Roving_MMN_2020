@@ -57,7 +57,7 @@ DO_BASELINE = false;
 ERF_BASELINE = [-0.1 0];
 
 % (4) Other settings
-alpha        = 0.05;  % threshold for stats
+alpha_thresh = 0.05;  % threshold for stats
 %x_lims       = [0 0.4];
 save_to_file = 'yes'; % save figures to file?
 
@@ -296,11 +296,11 @@ for i=1:length(group_list)
             error('NO POSITIVE CLUSTERS FOUND');
         else
             % Find the p-values of each cluster
-            pos_signif_clust = find(pos_cluster_pvals < alpha);
+            pos_signif_clust = find(pos_cluster_pvals < alpha_thresh);
 
             % Give the user some feedback in Command Window
             fprintf('Positive Clusters below %.3f alpha level: %d\n',...
-                alpha,length(pos_signif_clust));
+                alpha_thresh,length(pos_signif_clust));
 
             for t = 1:length(pos_signif_clust)
                 fprintf('Positive Cluster #%d: %.3f\n',pos_signif_clust(t),...
@@ -700,11 +700,11 @@ if isfield(stat,'negclusters')
         error('NO NEGATIVE CLUSTERS FOUND');
     else
        % Find the p-values of each cluster
-        neg_signif_clust = find(neg_cluster_pvals < alpha);
+        neg_signif_clust = find(neg_cluster_pvals < alpha_thresh);
         
         % Give the user some feedback in Command Window
         fprintf('Negative Clusters below %.3f alpha level: %d\n',...
-            alpha,length(neg_signif_clust));
+            alpha_thresh,length(neg_signif_clust));
 
         for t = 1:length(pos_signif_clust)
             fprintf('Negative Cluster #%d: %.3f\n', neg_signif_clust(t),...
