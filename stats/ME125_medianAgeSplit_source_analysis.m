@@ -3,7 +3,7 @@
 % NON-PARAMETRIC CLUSTER-BASED RANDOM PERMUTATION TESTING
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
+%{
 %%% PSF PATHS %%%
 % addpath('/Users/mq20096022/Documents/Matlab/fieldtrip-20200409/')
 % cd('/Users/mq20096022/Documents/Students/Hannah/MAtlab_March_2020/Group_test/') %top level folder with all sub folders
@@ -14,8 +14,6 @@
 
 %% 1. Add Fieldtrip and MQ_MEG_Scripts to your MATLAB path + other settings
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-%{
 % 30/04/20: Changed paths from PSF to HR
 
 close all
@@ -38,50 +36,162 @@ ft_default.spmversion = 'spm12'; % Force SPM12, SPM8 doesn't go well with mac + 
 ft_defaults % This loads the rest of the defaults
 %}
 
-
-mir = 'single_subj_T1.nii'; % standard brain from the MNI database
-%path_to_MRI_library = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 2. Start the subject loop - NOT AGE SPLIT! Creating VEs for each subject
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 1. Set up
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-orig    = cd;
+addpath(genpath(pwd));
+addpath(genpath('D:/Judy/GitHub/')); % path to MQ_MEG_Scripts & MEMES
+addpath(genpath('C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/')); % path to FT templates
+
+
+% PLEASE SPECIFY:
+
+% (1) Folder locations 
+
+% where to read MEG data from:
+data_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\ME125_roving_Phase1_data_37kids\\';
+%data_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\ME125_roving_adult_data\\';
+
+% where to store results:
+output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Source_Results_child\\'; % full path required on Windows, due to back-slash issues
+%output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Source_Results_adult\\'; 
+
+% (2) The group(s) of participants to analyse: 
+% (if you specify two groups, e.g. 'younger', 'older', then these two 
+% groups will also be compared with each other at the end)
+
+group_list = {'younger', 'older'};
+%group_list = {'adult'};
+
+% These lists are already set up for this study - shouldn't need to touch them
+group.older   = {'2913' '2787' '2697' '2702' '2786' '2716' '2698' '2712' '2872' '2703' '2888' '2811' '2696' '2713' '2904' '2854' '2699' '2858'}; % 18 kids, >=5yo
+group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' '2897' '2683' '2695' '2739' '2810' '2632' '2667' '2875' '2912' '2681'}; % 19 kids, <5yo
+folders = dir([data_path '2*']);
+group.adult = vertcat({folders(:).name});
+
+% (3) Coreg settings
+coreg_version = 'MEMES_5mm'; % select which version of MEMES results to use
+coreg_quality_check = false; % if 'true', will produce plots of headmodel/mesh/sensors/etc
+
+% (4) Stats settings
+alpha_thresh = 0.05;  % threshold for stats
+%x_lims       = [0 0.4];
+save_to_file = 'yes'; % save stats figures to file?
+
+% (5) Location of template brain & MRI library
+mri = 'single_subj_T1.nii'; % standard brain from the MNI database
+ROI_MNI_V4 = 'ROI_MNI_V4.nii';
+%ROI_MNI_V4 = 'C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/atlas/aal/ROI_MNI_V4.nii';
+
+path_to_MRI_library = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
+
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% 2. Start the subject loop - run MEMES & create VE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+cd(data_path)
+orig = cd;
+
 folders = dir('2*');
 
-for j=14:length(folders)
-    cd([orig,'/',folders(j).name,'/ReTHM/'])
+%% Run MEMES for each subject
+for j=1:length(folders)
+    SubjectID = folders(j).name;
+    cd([orig,'/',SubjectID,'/ReTHM/'])
     
-    % Load relevent info
+    coreg_output = [pwd '/' coreg_version '/']; % where to store the output from MEMES
+
+    % if headmodel etc haven't been generated, do this now
+    if ~exist([coreg_output 'headmodel.mat'], 'file')
+        
+        % find digitisation files
+        elp_file  = dir('*.elp'); % find the .elp file
+        filename_base = elp_file.name(1:strfind(elp_file.name,'.')-1); % get the base filename (ie. remove suffix)
+        elpfile = [filename_base, '.elp'];
+        hspfile = [filename_base, '.hsp'];
+        confile = [filename_base, '_B1_denoise_rethm.con'];
+        mrkfile = [filename_base, '_INI.mrk']; % choose which marker file to use
+
+        % specify the bad marker coils (max 2) for each subject
+        % Enter as: {'LPAred','RPAyel','PFblue','LPFwh','RPFblack'}
+        bad_coil = ''; 
+        if strcmp(SubjectID, '2818') || strcmp(SubjectID, '2853')
+            bad_coil = {'LPAred', 'RPFblack'};
+        elseif strcmp(SubjectID, '2673') || strcmp(SubjectID, '2766') || strcmp(SubjectID, '2786')
+            bad_coil = {'LPAred'};
+        elseif strcmp(SubjectID, '2874')
+            bad_coil = {'LPFwh', 'RPFblack'};
+        end
+
+        % call MEMES3 (new version Oct 2019)
+        if length(bad_coil) >= 2     % we use 'rot3dfit' by default (faster), however this sometimes has issues (creates upside-down coreg)
+            realign_method = 'icp';  % when there are 2 or more bad coils, so in that case we use 'icp' instead
+        else
+            realign_method = 'rot3dfit';
+        end
+        [headshape_downsampled] = downsample_headshape_child(hspfile); 
+        [grad_trans] = mq_realign_sens(pwd,elpfile,hspfile,confile,mrkfile,bad_coil,realign_method);
+        child_MEMES(pwd, grad_trans, headshape_downsampled, path_to_MRI_library, 3); % do not set a weighting for facial information
+
+        % call MEMES3 (old version 2018)
+        %MEMES3_old_2018(pwd, elpfile, hspfile, confile, mrkfile, MRI_folder, bad_coil, 'best', [0.99:0.01:1.01], 5, 'yes')
+
+        % close the figures MEMES created (each subject creates 5
+        % figures - becomes too many when running in batch)
+        close all;
+
+        % move the MEMES output into the coreg_output folder.
+        if ~exist(coreg_output, 'dir')
+            mkdir(coreg_output);
+        end                
+        movefile('*trans*', coreg_output);
+        movefile('*shape*', coreg_output);
+        movefile('*model*', coreg_output);
+        movefile('*quality*', coreg_output);
+        movefile('*error_age*', coreg_output);
+        movefile('MEMES_output.mat', coreg_output);
+    end
+end
+
+%% Create VEs for each subject
+for j=1:length(folders)
+    SubjectID = folders(j).name;
+
     disp('Loading relevant data');
+    
+    cd([orig,'/',SubjectID,'/ReTHM/'])
     load('deviant.mat');
     load('predeviant.mat');
+    
+    cd (coreg_version);
     load('headmodel.mat');
     load('sourcemodel3d.mat');
     load('grad_trans.mat');
-    %load('MEMES_output.mat');
-    load('mri_realigned.mat');
+    load('MEMES_output.mat');
     
-    %% Prepare VE points
+    % Prepare VE points
     %
     % Here we are loading the MRI chosen during MEMES coreg (ages 2-5 to 7-5)
-    %load([path_to_MRI_library '/' MEMES_output.MRI_winner...
-    %    '/mri_realigned.mat']);
+    load([path_to_MRI_library '/' MEMES_output.MRI_winner...
+        '/mri_realigned.mat']);
     
     % Transform this MRI based on the two matrices computed during MEMES coreg
-    %mri_realigned = ft_transform_geometry(MEMES_output.fid_matrix,...
-    %    mri_realigned);
-    mri_realigned = ft_transform_geometry(trans_matrix,...
+    mri_realigned = ft_transform_geometry(MEMES_output.fid_matrix,...
         mri_realigned);
-    %{
+    mri_realigned = ft_transform_geometry(MEMES_output.trans_matrix,...
+        mri_realigned);
+    
     % Make a figure to check you've marked LPA and RPA the right way round(!)
-    ft_determine_coordsys(mri_realigned, 'interactive', 'no');
-    hold on; % add the subsequent objects to the figure
-    drawnow; % workaround to prevent some MATLAB versions (2012b and 2014b) from crashing
-    ft_plot_vol(headmodel);
-    ft_plot_sens(grad_trans);
-    %}
-    %templates_dir        = '/Users/42450500/Documents/MATLAB/fieldTrip/fieldtrip-20200409/template/sourcemodel/';
+    if coreg_quality_check
+        ft_determine_coordsys(mri_realigned, 'interactive', 'no');
+        hold on; % add the subsequent objects to the figure
+        drawnow; % workaround to prevent some MATLAB versions (2012b and 2014b) from crashing
+        ft_plot_vol(headmodel);
+        ft_plot_sens(grad_trans);
+    end
+    
     temp                 = load('standard_sourcemodel3d5mm.mat'); 
     template_sourcemodel = temp.sourcemodel;
     template_sourcemodel = ft_convert_units(template_sourcemodel, 'mm');
@@ -96,12 +206,14 @@ for j=14:length(folders)
     % specifying the actual coordinates of these grid points in subject space)
     sourcemodel        = ft_convert_units(sourcemodel,'mm');
     
-    figure;
-    ft_plot_sens(grad_trans, 'style', '*b'); % plot the MEG sensor locations
-    ft_plot_vol(headmodel, 'edgecolor', 'cortex'); alpha 0.4; % plot the single shell (i.e. brain shape)
-    ft_plot_mesh(sourcemodel.pos(sourcemodel.inside,:)); % plot all vertices (ie. grid points) that are inside the brain
+    if coreg_quality_check
+        figure;
+        ft_plot_sens(grad_trans, 'style', '*b'); % plot the MEG sensor locations
+        ft_plot_vol(headmodel, 'edgecolor', 'cortex'); alpha 0.4; % plot the single shell (i.e. brain shape)
+        ft_plot_mesh(sourcemodel.pos(sourcemodel.inside,:)); % plot all vertices (ie. grid points) that are inside the brain
+    end
     
-    %% Prepare Leadfield
+    % Prepare Leadfield
     cfg            = [];
     cfg.grad       = grad_trans;
     cfg.headmodel  = headmodel; % individual headmodel (from coreg)
@@ -112,13 +224,14 @@ for j=14:length(folders)
     %lf = grid;  % computes the forward model for many dipole locations on a regular sourcemodel and stores it for efficient inverse modelling
     
     % make a figure of the single subject{i} headmodel, and grid positions
-    figure; hold on;
-    ft_plot_vol(headmodel,  'facecolor', 'cortex', 'edgecolor', 'none');alpha 0.5; camlight;
-    ft_plot_mesh(grid.pos(grid.inside,:),'vertexsize',20);
-    ft_plot_sens(grad_trans, 'style', 'r*','edgealpha',0.3); view([90,90]);
-    print('lf_headmodel_sens','-dpng','-r100');
+    if coreg_quality_check
+        figure; hold on;
+        ft_plot_vol(headmodel,  'facecolor', 'cortex', 'edgecolor', 'none');alpha 0.5; camlight;
+        ft_plot_mesh(grid.pos(grid.inside,:),'vertexsize',20);
+        ft_plot_sens(grad_trans, 'style', 'r*','edgealpha',0.3); view([90,90]);
+        %print('lf_headmodel_sens','-dpng','-r100');
+    end
     
-    %{
     %% Compute covariance matrix
     cfg                  = [];
     cfg.covariance       = 'yes';
@@ -134,7 +247,7 @@ for j=14:length(folders)
     %% Source reconstruction
     % perform source reconstruction using the lcmv method
     cfg                   = [];
-    cfg.channel           = deviants.label;
+    cfg.channel           = deviant.label;
     cfg.grad              = grad_trans;
     cfg.method            = 'lcmv';
     cfg.grid              = grid;
@@ -157,11 +270,7 @@ for j=14:length(folders)
     
     
     % Load Atlas (contains parcellation of brain into regions/tissues/parcels)
-    % atlas =
-    % ft_read_atlas(fullfile('/Users/mq20096022/Documents/Matlab/fieldtrip-20200409/template/atlas/aal', 'ROI_MNI_V4.nii')); % PS path
-    atlas = ft_read_atlas(fullfile('/Users/42450500/Documents/MATLAB/fieldTrip/fieldtrip-20200409/template/atlas/aal', 'ROI_MNI_V4.nii'));
-    
-    
+    atlas = ft_read_atlas(ROI_MNI_V4);
     atlas = ft_convert_units(atlas, 'mm');% ensure that atlas and template_sourcemodel are expressed in the same units
     
     % Interpolate the atlas onto template sourcemodel (10mm grid),
@@ -202,6 +311,7 @@ for j=14:length(folders)
         vertices_filters = cat(1, sourceall.avg.filter{vertices_all});
         %vertices_filters_target = cat(1, source_standard.avg.filter{vertices_all});
         
+        %fprintf ('k = %d\n', k);
         
         % create virtual sensor for this ROI in cue window
         VE_S = create_virtual_sensor_Centroid(ROI_name, vertices_all, vertices_filters, avg_combined, avg_standard, 1, headmodel, sourcemodel);
@@ -313,8 +423,7 @@ for j=14:length(folders)
     end
     
     % Save this png
-    print(['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/png','/VE_ERF_MMF'],'-dpng','-r200');
-    %     print('/VE_ERF_MMF','-dpng','-r200');
+    print([output_path 'individual_subjects_VE/' SubjectID '_VE_MMF'],'-dpng','-r200');
     
     
     close all
@@ -339,8 +448,8 @@ for j=14:length(folders)
         save VE_standard VE_standard
         save VE_deviant VE_deviant
     end
+    
     cd(orig)
-    %}
 end
 
 
@@ -353,8 +462,6 @@ group.older   = {'3105' '3149' '3153' '3154' '3159' '3160' '3163' '3164' '3186' 
 group.younger = {'3138' '3148' '3156' '3158' '3161' '3190' '3193' '3198' '3199' '3214' '3217' '3261' '3262' '3266' '3267' '3277' '3279' '3283'};
 
 group_list = {'younger','older'};
-
-
 
 
 
@@ -703,4 +810,3 @@ end
 save (['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/','stat_MMFbyGrpROI.(labels{i}'], 'stat_MMFbyGrpROI');
 
 stat_MMFbyGrpROI.Left_A1.mask % etc. (x6 ROI) to check for sig. young v old MMF differences
-
