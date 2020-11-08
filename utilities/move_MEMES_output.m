@@ -1,5 +1,5 @@
 for j=1:length(folders)
-    
+
     SubjectID = folders(j).name;
     cd([orig,'/',SubjectID,'/ReTHM/'])
     
