@@ -3,23 +3,6 @@
 % NON-PARAMETRIC CLUSTER-BASED RANDOM PERMUTATION TESTING
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%{
-%% 1. Add Fieldtrip and MQ_MEG_Scripts to your MATLAB path
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-close all
-
-addpath /Users/42450500/Documents/MATLAB/fieldTrip/fieldtrip-20200409/; % change path if necessary
-ft_defaults
-disp('Adding Fieldtrip to your MATLAB path');
-
-addpath /Users/42450500/OneDrive - Macquarie University/phd/other/projects/ME175/analysis/fieldTrip_scripts;
-addpath(genpath('/Users/42450500/Documents/MATLAB/fieldTrip/MQ_MEG_Scripts-master'))
-disp('Adding MQ_MEG_Scripts + to your MATLAB path');
-
-global ft_default
-ft_default.spmversion = 'spm12'; % Force SPM12, SPM8 doesn't go well with mac + 2017b
-ft_defaults % This loads the rest of the defaults
-%}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 1. Set up
@@ -27,6 +10,7 @@ ft_defaults % This loads the rest of the defaults
 
 load('lay.mat');
 load ('neighbours_125.mat')
+
 
 % PLEASE SPECIFY:
 % (1) Folder locations 
@@ -247,7 +231,7 @@ end
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 3. Plot the clusters (plot sensor-level statistics)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%\
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 for i=1:length(group_list)
 
@@ -484,10 +468,8 @@ young_stat.negclusters.prob % where pos would = S > D
 %}
 
 
-%%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%         GROUP COMPARISON - MMF in younger vs older kids
-%                      (cluster-based t-test)
+%% 4. GROUP COMPARISON - MMF in younger vs older kids (cluster-based t-test)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % ONLY RUN THIS SECTION IF there are two groups specified at the top
