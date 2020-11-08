@@ -3,44 +3,12 @@
 % NON-PARAMETRIC CLUSTER-BASED RANDOM PERMUTATION TESTING
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%{
-%%% PSF PATHS %%%
-% addpath('/Users/mq20096022/Documents/Matlab/fieldtrip-20200409/')
-% cd('/Users/mq20096022/Documents/Students/Hannah/MAtlab_March_2020/Group_test/') %top level folder with all sub folders
-% addpath(genpath('/Users/mq20096022/Documents/GitHub/MQ_MEG_Scripts-master'))
-% addpath('/Users/mq20096022/Documents/Students/Hannah/MAtlab_March_2020')
-% mri                 = '/Users/mq20096022/Documents/Matlab/fieldtrip-20200409/template/anatomy/single_subj_T1.nii'; % standard brain from the MNI database
-% path_to_MRI_library = '/Users/mq20096022/Documents/GitHub/MEMES-master/database_for_CHILD_MEMES';
-
-%% 1. Add Fieldtrip and MQ_MEG_Scripts to your MATLAB path + other settings
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 30/04/20: Changed paths from PSF to HR
-
-close all
-
-cd('/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/subjects')
-
-addpath ('/Users/42450500/Documents/MATLAB/fieldTrip/fieldtrip-20200409/'); % change path if necessary
-addpath(genpath('/Users/42450500/Documents/MATLAB/fieldTrip/MQ_MEG_Scripts-master'))
-addpath(genpath('/Users/42450500/OneDrive - Macquarie University/phd/other/projects/ME175/analysis/fieldTrip_scripts/stats/source_level/centroid_PFS'))
-addpath ('/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/subjects')
-
-mri = ['/Users/42450500/Documents/MATLAB/fieldTrip/fieldtrip-20200409/'...
-    'template/anatomy/single_subj_T1.nii']; % standard brain from the MNI database
-
-path_to_MRI_library = ['/Users/42450500/Documents/MATLAB/fieldTrip/'...
-    'database_for_MEMES_child'];
-
-global ft_default
-ft_default.spmversion = 'spm12'; % Force SPM12, SPM8 doesn't go well with mac + 2017b
-ft_defaults % This loads the rest of the defaults
-%}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 1. Set up
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-addpath(genpath(pwd));
+addpath(genpath([pwd '/..'])); % get access to all scripts in current repo
 addpath(genpath('D:/Judy/GitHub/')); % path to MQ_MEG_Scripts & MEMES
 addpath(genpath('C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/')); % path to FT templates
 
@@ -81,8 +49,8 @@ save_to_file = 'yes'; % save stats figures to file?
 
 % (5) Location of template brain & MRI library
 mri = 'single_subj_T1.nii'; % standard brain from the MNI database
-ROI_MNI_V4 = 'ROI_MNI_V4.nii';
-%ROI_MNI_V4 = 'C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/atlas/aal/ROI_MNI_V4.nii';
+aal_atlas = 'ROI_MNI_V4.nii';
+%aal_atlas = 'C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/atlas/aal/ROI_MNI_V4.nii';
 
 path_to_MRI_library = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
 
@@ -259,18 +227,15 @@ for j=1:length(folders)
     cfg.lcmv.lambda       = '5%';
     sourceall             = ft_sourceanalysis(cfg, avg_combined);
     
-    % Now do source analysis for deviant and standard trials using the common
-    % filter.
-    %cfg.lcmv.filter        = sourceall.avg.filter;
-    
-    % This will probably end up with the same filter as for sourceall.. so I
-    % can skip?
+    % source localisation for deviant and standard trials using the common
+    % spatial filter (not required for ROI analysis)
+    % cfg.lcmv.filter        = sourceall.avg.filter;
     % source_deviant         = ft_sourceanalysis(cfg, avg_deviant);
     % source_standard      = ft_sourceanalysis(cfg, avg_standard);
     
     
     % Load Atlas (contains parcellation of brain into regions/tissues/parcels)
-    atlas = ft_read_atlas(ROI_MNI_V4);
+    atlas = ft_read_atlas(aal_atlas);
     atlas = ft_convert_units(atlas, 'mm');% ensure that atlas and template_sourcemodel are expressed in the same units
     
     % Interpolate the atlas onto template sourcemodel (10mm grid),
@@ -301,8 +266,8 @@ for j=1:length(folders)
         % for this ROI, find a list of vertices that belong to it, and
         % extract the spatial filter for each vertex in cue window & target window
         vertices_all = []; % will hold a single list of all vertices (from all parcels belonging to this ROI)
-        for j = 1:length(ROIs{k})
-            indx         = find(ismember(atlas_interpo.tissuelabel, ROIs{k}{j})); % find index of the required tissue label
+        for i = 1:length(ROIs{k})
+            indx         = find(ismember(atlas_interpo.tissuelabel, ROIs{k}{i})); % find index of the required tissue label
             vertices     = find(atlas_interpo.tissue == indx); % find vertices that belong to this tissue label
             % add vertices from the current parcel to the overall list
             vertices_all = [vertices_all; vertices];
@@ -378,7 +343,6 @@ for j=1:length(folders)
     % ylimmm = max([max(max(abs(VE_deviant_ERF.avg))) ...
     %     max(max(abs(VE_standard_ERF.avg)))]).*1.1;
     
-    
     labels = fields(ROI_activity_deviant);
     for i = 1:length(labels)
         
@@ -425,9 +389,9 @@ for j=1:length(folders)
     % Save this png
     print([output_path 'individual_subjects_VE/' SubjectID '_VE_MMF'],'-dpng','-r200');
     
-    
     close all
     
+    % save the ROI activities
     VE_standard = [];
     VE_deviant  = [];
     
@@ -437,17 +401,15 @@ for j=1:length(folders)
     VE_deviant.time   = ROI_activity_deviant.LIFG.time;
     VE_deviant.dimord = ROI_activity_deviant.LIFG.dimord;
     
-    for i=1:length(ROIs_label)
-        
+    for i=1:length(ROIs_label)        
         VE_standard.label{i} = ROIs_label{i};
         VE_standard.avg(i,:) = ROI_activity_standard.(ROIs_label{i}).avg;
         
         VE_deviant.label{i} = ROIs_label{i};
         VE_deviant.avg(i,:) = ROI_activity_deviant.(ROIs_label{i}).avg;
-        
-        save VE_standard VE_standard
-        save VE_deviant VE_deviant
     end
+    save VE_standard VE_standard
+    save VE_deviant VE_deviant
     
     cd(orig)
 end
@@ -455,23 +417,10 @@ end
 
 %% 3. Grand average VE (BY AGE GROUP)
 
-% AGE GROUPS
-cd ('/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/subjects')
-
-group.older   = {'3105' '3149' '3153' '3154' '3159' '3160' '3163' '3164' '3186' '3210' '3241' '3257' '3265' '3269' '3278' '3281' '3282' '3284' '3285'};
-group.younger = {'3138' '3148' '3156' '3158' '3161' '3190' '3193' '3198' '3199' '3214' '3217' '3261' '3262' '3266' '3267' '3277' '3279' '3283'};
-
-group_list = {'younger','older'};
-
-
-
-
-
-
-%% source analysis (separately for young & old)
+% source analysis (separately for young & old)
 
 orig = cd;
-folders = dir('3*');
+folders = dir('2*');
 
 for q=1:length(group_list)
     
