@@ -44,7 +44,7 @@ coreg_quality_check = false; % if 'true', will produce plots of headmodel/mesh/s
 
 % (4) Stats settings
 alpha_thresh = 0.05;  % threshold for stats
-%x_lims       = [0 0.4];
+x_lims       = [0 0.4];
 save_to_file = 'yes'; % save stats figures to file?
 
 % (5) Location of template brain & MRI library
@@ -55,8 +55,8 @@ aal_atlas = 'ROI_MNI_V4.nii';
 path_to_MRI_library = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
 
 
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-% 2. Start the subject loop - run MEMES & create VE
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 2. Start the subject loop - run MEMES & create VE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 cd(data_path)
@@ -380,7 +380,7 @@ for j=1:length(folders)
         
         xlabel('Time (sec)');
         set(gca,'fontsize', 14);
-        legend('deviant','standard')
+        legend('deviant','predeviant')
         
         % Give the title
         title(sprintf('%s',labels{i}),'Interpreter', 'none','FontSize',18);
@@ -415,12 +415,9 @@ for j=1:length(folders)
 end
 
 
-%% 3. Grand average VE (BY AGE GROUP)
-
-% source analysis (separately for young & old)
-
-orig = cd;
-folders = dir('2*');
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 3. Grand average VE (separately for young & old)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 for q=1:length(group_list)
     
@@ -435,11 +432,11 @@ for q=1:length(group_list)
     VE_deviant_all  = [];
     VE_standard_all = [];
     
-    for sub=1:length(idx)
-        
-        disp(folders(idx(sub)).name);
-        cd(folders(idx(sub)).name);
-        
+    for sub=1:length(idx)        
+        SubjectID = folders(idx(sub)).name;
+        disp(SubjectID);
+        cd([orig,'/',SubjectID,'/ReTHM/' coreg_version])
+
         load('VE_deviant.mat'); % load each individual's VE D & S, and add to the '..._all' variable
         load('VE_standard.mat');
         
@@ -447,8 +444,7 @@ for q=1:length(group_list)
         VE_standard_all{sub} = VE_standard;
         
         clear VE_deviant VE_standard % not sure this is necessary, it will be overwritten by next load (?)
-        cd(orig)
-        
+        cd(orig)        
     end
     
     % Grandaverage BUT keep the individuals (so we can plot 95% confidence
@@ -459,14 +455,16 @@ for q=1:length(group_list)
     VE_deviant_grandavg  = ft_timelockgrandaverage(cfg,VE_deviant_all{:});
     VE_standard_grandavg = ft_timelockgrandaverage(cfg,VE_standard_all{:});
     
-    
-    
+        
     %% Plot S, D and difference waveform
     
     cfg           = [];
     cfg.operation = 'subtract';
     cfg.parameter = 'individual';
     MMF_all       = ft_math(cfg,VE_deviant_grandavg,VE_standard_grandavg);
+    
+    %save ([output_path,'MMF_all_',group_list{q}],'MMF_all')
+    
     
 % % % %     save (['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/','MMF_all_',group_list{q}],'MMF_all')
 % % % %     
@@ -603,26 +601,22 @@ for q=1:length(group_list)
 % % % %     print(['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/png/', group_list{q},'_VE_S-D-MMF'],'-dpng','-r300');
 % % % %     
     %%     Plot S v D
-    
-    %cd('/Users/42450500/Desktop/phd_data/ME175_optimum/include/group/source-level');
-    
-    
+
     mask_param_all = [];
-    cmap   = [0.9020 0.0824 0.2706; 0.3098 0.1686 1.0000];
+    %cmap   = [0.9020 0.0824 0.2706; 0.3098 0.1686 1.0000];
+    cmap   = ['r'; 'b'];
 
     x = VE_deviant_grandavg.time;
     
     % colors
-    labels = {'Left IFG','Right IFG','Left STG','Right STG','Left A1','Right A1'};
+    labels_full = {'Left IFG','Right IFG','Left STG','Right STG','Left A1','Right A1'};
     
     figure;
     set(gcf, 'Position',  [100, 100, 800, 1600]);
     
     % For every ROI
-    for i = 1:length(labels)
-        
-        
-        
+    for i = 1:length(labels_full)
+
         % Calculate mean and 95% confidence intervals for deviants
         [mean_deviant, CI_deviant] = mq_get_confidence_cousineau(squeeze(...
             VE_deviant_grandavg.individual(:,i,:)));
@@ -631,10 +625,10 @@ for q=1:length(group_list)
         [mean_standard, CI_standard] = mq_get_confidence_cousineau(squeeze(...
             VE_standard_grandavg.individual(:,i,:)));
         
-  %%% ADDED top
+        %%% ADDED top
         cfg                  = [];
         cfg.channel          = VE_deviant_all{1,1}.label{i};
-        cfg.latency          = [0 0.5];
+        cfg.latency          = x_lims;
         %cfg.dim             = VE_deviant_all{1,i}.dim;
         cfg.method           = 'montecarlo';
         cfg.statistic        = 'ft_statfun_depsamplesT';
@@ -644,7 +638,7 @@ for q=1:length(group_list)
         cfg.numrandomization = 2000;  % NB. Only did 1000 for the sensor level. More computationally difficult to do >1000 for sensor-lvl since more channels to process. Can do way more for source.
         %cfg.clusteralpha    = 0.001;
         cfg.tail             = 0;    % Two sided testing
-        cfg.alpha            = 0.05;
+        cfg.alpha            = alpha_thresh;
         % Design Matrix
         nsubj           = length(VE_deviant_all);
         cfg.design(1,:) = [1:nsubj 1:nsubj];
@@ -652,21 +646,21 @@ for q=1:length(group_list)
         cfg.uvar        = 1; % row of design matrix that contains unit variable (in this case: subjects)
         cfg.ivar        = 2; % row of design matrix that contains independent variable (the conditions)
         %
-        stat            = ft_timelockstatistics(cfg,VE_deviant_all{:},...
-            VE_standard_all{:});
+        stat            = ft_timelockstatistics(cfg,VE_deviant_all{:},VE_standard_all{:});
         mask_param                = double(stat.mask);
         mask_param(mask_param==0) = NaN;
         %         mask_param(mask_param==1) = -1.4e-13;
         mask_param(mask_param==1) = -.9e-13;
         mask_param_all(i,:) = mask_param;   
-   %%% ADDED bottom
+        %%% ADDED bottom
 
         
         % Plot using boundedline
         %         subplot(3,2,i);plot(x,mean_standard,x,mean_deviant);
         % OR
         %     % Plot using boundedline (CIS
-        subplot(3,2,i);boundedline(x,mean_deviant,CI_deviant(2,:),...
+        h = subplot(3,2,i);
+        boundedline(x,mean_deviant,CI_deviant(2,:),...
             x,mean_standard,...
             CI_standard(2,:),'alpha','transparency',0.3,'cmap',cmap);
         
@@ -680,56 +674,59 @@ for q=1:length(group_list)
                 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %%%%%%%%%%%%%%% Y LIMITS FOR EACH ROI %%%%%%%%%%%%%%%%%%%%
         %         ylim([-10e-5 5e-5]);
-        limits = {([-13e-6 12e-6]),([-13e-6 12e-6]),([-4e-5 3e-5]),([-4e-5 3e-5]),([-1.5e-4 1.5e-4]),([-1.5e-4 1.5e-4])};
-        ylim(limits{i});
+        %limits = {([-13e-6 12e-6]),([-13e-6 12e-6]),([-4e-5 3e-5]),([-4e-5 3e-5]),([-1.5e-4 1.5e-4]),([-1.5e-4 1.5e-4])};
+        %ylim(limits{i});
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
         
         
-        xlim([0 0.51]);
+        xlim([-0.1 0.41]);
         
         % Adjust FontSize
         set(gca,'fontsize', 14);
-    %%% ADDED below       
-      hold on; drawnow;
-        plot([0:.001:0.5],mask_param,'-k','LineWidth',3);
-        ax = gca;
-%         ax.YRuler.TickLabelFormat = '%.0f';
-    %%% ADDED above
+        
+        
+        %%% ADDED below       
+        hold on; drawnow;
+        plot([0:.001:0.4], mask_param, '-k', 'LineWidth',3);
+        %ax = gca;
+        %ax.YRuler.TickLabelFormat = '%.0f';
+        %%% ADDED above
     
         % Give the subplot a title (ROI)
-        title(sprintf('%s',labels{i}),'Interpreter', 'none','FontSize',18);
+        title(sprintf('%s',labels_full{i}),'Interpreter', 'none','FontSize',18);
         
+        % Line width & legend
+        lines = findall(h, 'Type','line');
+        legend(flip(lines(2:3)), 'Deviant','Predeviant', 'Location','northwest');    
+        set(lines(2:3), 'Linewidth',2); % line thickness
+
     end
     
-    
-    print(['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/png/', group_list{q},'_VE_SvD'],'-dpng','-r300');
-    
-    
-    
+    print([output_path, 'VE_SvsD_', group_list{q}],'-dpng','-r300');
     
     close all
-    % clear mean_deviant mean_standard
+    %clear mean_deviant mean_standard
+    
     cd(orig);
-    
-    
-end % end age group loop
+
+end % end of Step 3
 
 
-%% young vs old statistica comparison
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 4. young vs old statistical comparison
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-load('/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/MMF_all_older.mat')
+load([output_path 'MMF_all_older.mat'])
 old_mmf = MMF_all;
 
-load('/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/MMF_all_younger.mat')
+load([output_path 'MMF_all_younger.mat'])
 young_mmf = MMF_all;
 
-for i = 1:length(labels)
-    
+for i = 1:length(ROIs_label)
     cfg                  = [];
-    %     cfg.channel          = MMF_all{1,1}.label{i};
-    cfg.channel          = VE_deviant_all{1,1}.label{i};
-    cfg.latency          = [0 0.5];
+    cfg.channel          = young_mmf.label{i};
+    cfg.latency          = x_lims;
     %cfg.dim             = VE_deviant_all{1,i}.dim;
     cfg.method           = 'montecarlo';
     cfg.statistic        = 'ft_statfun_indepsamplesT';
@@ -739,8 +736,7 @@ for i = 1:length(labels)
     cfg.numrandomization = 2000;  % NB. Only did 1000 for the sensor level. More computationally difficult to do >1000 for sensor-lvl since more channels to process. Can do way more for source.
     %cfg.clusteralpha    = 0.001;
     cfg.tail             = 0;    % Two sided testing
-    cfg.alpha            = 0.05;
-    
+    cfg.alpha            = alpha_thresh;
     
     % Design Matrix
     design = [ones(1,length(group.older)) 2*ones(1,length(group.younger))];
@@ -751,11 +747,75 @@ for i = 1:length(labels)
     %%% b/w-subjects, comparing a row of group A/old (1s) with group B/young (2s).
     %%% To create the 2s = 2*ones = 2s. Call this 'deisgn' into the cfg settings.
     %%% the ivar is 'group' (with two levels, young vs old
-    
-    
-    stat_MMFbyGrpROI.(labels{i})            = ft_timelockstatistics(cfg,old_mmf,young_mmf);
+
+    stat_MMFbyGrpROI.(ROIs_label{i}) = ft_timelockstatistics(cfg,old_mmf,young_mmf);
     
 end
-save (['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/','stat_MMFbyGrpROI.(labels{i}'], 'stat_MMFbyGrpROI');
 
-stat_MMFbyGrpROI.Left_A1.mask % etc. (x6 ROI) to check for sig. young v old MMF differences
+save ([output_path 'stat_MMFbyGroup_ROI'], 'stat_MMFbyGrpROI');
+
+% check for sig effects
+for i = 1:length(ROIs_label)
+    length(find(stat_MMFbyGrpROI.(ROIs_label{i}).mask))
+end
+
+
+%% plot MMF: young vs old
+figure;
+set(gcf, 'Position',  [100, 100, 800, 1600]);
+
+cmap   = ['g'; 'm'];
+
+% For every ROI
+for i = 1:length(labels_full)
+
+    x = old_mmf.time;
+
+    % Calculate mean and 95% confidence intervals for deviants
+    [mean_old, CI_old] = mq_get_confidence_cousineau(squeeze(...
+        old_mmf.individual(:,i,:)));
+
+    % Calculate mean and 95% confidence intervals for standards
+    [mean_young, CI_young] = mq_get_confidence_cousineau(squeeze(...
+        young_mmf.individual(:,i,:)));
+
+    % to create the bar indicating sig time intervals
+    mask_param                = double(stat_MMFbyGrpROI.(ROIs_label{i}).mask);
+    mask_param(mask_param==0) = NaN;
+    %         mask_param(mask_param==1) = -1.4e-13;
+    mask_param(mask_param==1) = -.9e-13;
+    mask_param_all(i,:) = mask_param;   
+
+
+    % Plot using boundedline
+    %         subplot(3,2,i);plot(x,mean_standard,x,mean_deviant);
+    % OR
+    %     % Plot using boundedline (CIS
+    h = subplot(3,2,i);
+    boundedline(x,mean_old,CI_old(2,:),...
+        x,mean_young,...
+        CI_young(2,:),'alpha','transparency',0.3,'cmap',cmap);    
+            
+    % Label and adjust lims
+    xlabel('Time (sec)');
+    ylabel('Amplitude (Tesla/cm^{2})');        
+
+    xlim([-0.1 0.41]);
+
+    % Adjust FontSize
+    set(gca,'fontsize', 14);
+
+    hold on; drawnow;
+    plot([0:.001:0.4], mask_param, '-k', 'LineWidth',3);
+
+    % Give the subplot a title (ROI)
+    title(sprintf('%s',labels_full{i}),'Interpreter', 'none','FontSize',18);
+    
+    % Line width & legend
+    lines = findall(h, 'Type','line');
+    legend(flip(lines(2:3)), 'Older MMF','younger MMF', 'Location','northwest');    
+    set(lines(2:3), 'Linewidth',2); % line thickness
+
+end
+
+print([output_path, 'MMF_VE_young-vs-old'],'-dpng','-r300');
