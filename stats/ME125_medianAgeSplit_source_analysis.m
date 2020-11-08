@@ -8,53 +8,75 @@
 %% 1. Set up
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% = PLEASE SPECIFY =
+
+% (1) run adult or child data?
+thisrun = 'adult'; %'child';
+
+% (2) add necessary paths
 addpath(genpath([pwd '/..'])); % get access to all scripts in current repo
 addpath(genpath('D:/Judy/GitHub/')); % path to MQ_MEG_Scripts & MEMES
 addpath(genpath('C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/')); % path to FT templates
 
+% (3) specify relevant paths below
+if strcmp(thisrun, 'child')
+    % where to read MEG data from:
+    data_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\ME125_roving_Phase1_data_37kids\\';
+    
+    % where to store results:
+    output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Source_Results_child\\'; % full path required on Windows, due to back-slash issues
+    
+    % location of MRI database:
+    path_to_MRI_library = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
 
-% PLEASE SPECIFY:
+    % The group(s) of participants to analyse: 
+    % (if you specify two groups, e.g. 'younger', 'older', then these two 
+    % groups will also be compared with each other at the end)
+    group_list = {'younger', 'older'};
+    
+elseif strcmp(thisrun, 'adult')
+    % where to read MEG data from:
+    data_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\ME125_roving_adult_data\\';
 
-% (1) Folder locations 
+    % where to store results:
+    output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Source_Results_adult\\'; 
 
-% where to read MEG data from:
-data_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\ME125_roving_Phase1_data_37kids\\';
-%data_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\ME125_roving_adult_data\\';
+    % location of MRI database:
+    path_to_MRI_library = 'D:/Judy/MRI_databases/new_HCP_library_for_MEMES/';
+    
+    % The group(s) of participants to analyse: 
+    % (if you specify two groups, e.g. 'younger', 'older', then these two 
+    % groups will also be compared with each other at the end)
+    group_list = {'adult'};    
+    
+else
+    ft_error('Please specify a valid run option: adult, child.\nScript terminated.\n');
+end
 
-% where to store results:
-output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Source_Results_child\\'; % full path required on Windows, due to back-slash issues
-%output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Source_Results_adult\\'; 
 
-% (2) The group(s) of participants to analyse: 
-% (if you specify two groups, e.g. 'younger', 'older', then these two 
-% groups will also be compared with each other at the end)
+% = SHOULDN'T NEED TO CHANGE THE FOLLOWING =
 
-group_list = {'younger', 'older'};
-%group_list = {'adult'};
-
-% These lists are already set up for this study - shouldn't need to touch them
+% These lists are set up for ME125 - change if analysing other studies
 group.older   = {'2913' '2787' '2697' '2702' '2786' '2716' '2698' '2712' '2872' '2703' '2888' '2811' '2696' '2713' '2904' '2854' '2699' '2858'}; % 18 kids, >=5yo
 group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' '2897' '2683' '2695' '2739' '2810' '2632' '2667' '2875' '2912' '2681'}; % 19 kids, <5yo
 folders = dir([data_path '2*']);
 group.adult = vertcat({folders(:).name});
-
-% (3) Coreg settings
+    
+% Coreg settings
 coreg_version = 'MEMES_5mm'; % select which version of MEMES results to use
-coreg_quality_check = false; % if 'true', will produce plots of headmodel/mesh/sensors/etc
+coreg_quality_check = true; % if 'true', will produce plots of headmodel/mesh/sensors/etc
 
-% (4) Stats settings
+% Stats settings
 alpha_thresh = 0.05;  % threshold for stats
 x_lims       = [0 0.4];
-save_to_file = 'yes'; % save stats figures to file?
+%save_to_file = 'yes'; % save stats figures to file?
 
-% (5) Location of template brain & MRI library
+% Location of template brain & MRI library
 mri = 'single_subj_T1.nii'; % standard brain from the MNI database
 aal_atlas = 'ROI_MNI_V4.nii';
 %aal_atlas = 'C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/atlas/aal/ROI_MNI_V4.nii';
-
-path_to_MRI_library = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
-
-
+    
+    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 2. Start the subject loop - run MEMES & create VE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -99,10 +121,16 @@ for j=1:length(folders)
         else
             realign_method = 'rot3dfit';
         end
-        [headshape_downsampled] = downsample_headshape_child(hspfile); 
-        [grad_trans] = mq_realign_sens(pwd,elpfile,hspfile,confile,mrkfile,bad_coil,realign_method);
-        child_MEMES(pwd, grad_trans, headshape_downsampled, path_to_MRI_library, 3); % do not set a weighting for facial information
-
+        
+        if strcmp(thisrun, 'child')
+            [headshape_downsampled] = downsample_headshape_child(hspfile); 
+            [grad_trans] = mq_realign_sens(pwd,elpfile,hspfile,confile,mrkfile,bad_coil,realign_method);
+            child_MEMES(pwd, grad_trans, headshape_downsampled, path_to_MRI_library, 3); % do not set a weighting for facial information
+        elseif strcmp(thisrun, 'adult')
+            [headshape_downsampled] = downsample_headshape_new(hspfile); 
+            [grad_trans] = mq_realign_sens(pwd,elpfile,hspfile,confile,mrkfile,bad_coil,realign_method);
+            MEMES3(pwd, grad_trans, headshape_downsampled, path_to_MRI_library, 'best', [0.95:0.01:1.05], 5, 3);
+        end        
         % call MEMES3 (old version 2018)
         %MEMES3_old_2018(pwd, elpfile, hspfile, confile, mrkfile, MRI_folder, bad_coil, 'best', [0.99:0.01:1.01], 5, 'yes')
 
