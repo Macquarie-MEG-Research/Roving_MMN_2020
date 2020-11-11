@@ -12,9 +12,9 @@ load('lay.mat');
 load ('neighbours_125.mat')
 
 
-% PLEASE SPECIFY:
-% (1) Folder locations 
+% = PLEASE SPECIFY =
 
+% (1) Folder locations 
 % where to read MEG data from:
 data_path = '..\\..\\ME125_roving_Phase1_data_37kids\\';
 %data_path = '..\\..\\ME125_roving_adult_data\\';
@@ -30,7 +30,7 @@ output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Results_young-vs-old\\'
 group_list = {'younger', 'older'};
 %group_list = {'adult'};
 
-% These lists are already set up for this study - shouldn't need to touch them
+% The following lists are set up for ME125 (roving) Phase 1 - change if analysing other studies
 group.older   = {'2913' '2787' '2697' '2702' '2786' '2716' '2698' '2712' '2872' '2703' '2888' '2811' '2696' '2713' '2904' '2854' '2699' '2858'}; % 18 kids, >=5yo
 group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' '2897' '2683' '2695' '2739' '2810' '2632' '2667' '2875' '2912' '2681'}; % 19 kids, <5yo
 folders = dir([data_path '2*']);
@@ -42,7 +42,7 @@ ERF_BASELINE = [-0.1 0];
 
 % (4) Other settings
 alpha_thresh = 0.05;  % threshold for stats
-%x_lims       = [0 0.4];
+x_lims       = [0 0.4];
 save_to_file = 'yes'; % save figures to file?
 
 
@@ -201,12 +201,12 @@ for i=1:length(group_list)
     %cfg.grad = deviant_ave.grad;
     cfg.channel     = 'all';
     cfg.neighbours  = neighbours; % defined as above
-    cfg.latency     = [0 0.5];  % timewindow for the stats. Epoched earlier, but doesn't make sense to do the stats before 0, since an effect before the stimulus (i.e., before 0) would be meaningless/not interpretable.
+    cfg.latency     = x_lims;  % timewindow for the stats. Epoched earlier, but doesn't make sense to do the stats before 0, since an effect before the stimulus (i.e., before 0) would be meaningless/not interpretable.
     cfg.avgovertime = 'no'; %
     cfg.parameter   = 'avg';
     cfg.method      = 'montecarlo';
     cfg.statistic   = 'ft_statfun_depsamplesT';
-    cfg.alpha       = 0.05; % threshold for the significant clusters when doing the Mote Carlo p-value comparison step
+    cfg.alpha       = alpha_thresh; % threshold for the significant clusters when doing the Mote Carlo p-value comparison step
     cfg.clusteralpha = 0.05; % threshold for initial clustering before correction
     cfg.correctm    = 'cluster';
     %cfg.correcttail = 'prob';
@@ -471,7 +471,6 @@ young_stat.negclusters.prob % where pos would = S > D
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 4. GROUP COMPARISON - MMF in younger vs older kids (cluster-based t-test)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 % ONLY RUN THIS SECTION IF there are two groups specified at the top
 if length(group_list) ~= 2
     error('Note: Only 1 group of participants were specified for analysis. Not performing any group comparison.'); % this will terminate the script
@@ -490,14 +489,14 @@ young_mmf = avg_mmf_planar_all;
 cfg                  = [];
 cfg.channel          = 'all';
 cfg.neighbours       = neighbours; % defined as above
-cfg.latency          = [0 0.5];
+cfg.latency          = x_lims;
 cfg.avgovertime      = 'no'; %
 cfg.parameter        = 'avg';
 cfg.statistic        = 'ft_statfun_indepsamplesT';
 cfg.correctm         = 'cluster';
 cfg.clusteralpha     = 0.05; % threshold for initial clustering before correction
 cfg.method           = 'montecarlo';
-cfg.alpha            = 0.05; % threshold for the significant clusters when doing the Mote Carlo p-value comparison step
+cfg.alpha            = alpha_thresh; % threshold for the significant clusters when doing the Mote Carlo p-value comparison step
 cfg.correcttail      = 0;
 cfg.numrandomization = 1000;
 cfg.minnbchan        = 2; % minimal neighbouring channels
@@ -670,7 +669,7 @@ GA_young_mmf = ft_timelockgrandaverage([],young_mmf{:});
 
 % mask_param = stat.mask;
 
-%% 
+
 stat=stat_MMFbyGroup;
 
 % find neg clusters that are sig
@@ -685,31 +684,35 @@ if isfield(stat,'negclusters')
         neg_signif_clust = find(neg_cluster_pvals < alpha_thresh);
         
         % Give the user some feedback in Command Window
-        fprintf('Negative Clusters below %.3f alpha level: %d\n',...
+        fprintf('There are %d negative Clusters below %.3f alpha level.\n',...
             alpha_thresh,length(neg_signif_clust));
 
-        for t = 1:length(pos_signif_clust)
-            fprintf('Negative Cluster #%d: %.3f\n', neg_signif_clust(t),...
+        for t = 1:length(neg_signif_clust)
+            fprintf('Negative Cluster #%d: p = %.3f\n', neg_signif_clust(t),...
                 neg_cluster_pvals(neg_signif_clust(t)));
         end
 
         % For each cluster...
         for t = 1:length(neg_signif_clust)
+            % Get the significant channels
+            pos = ismember(stat.negclusterslabelmat, neg_signif_clust(t));
+            highlight_chan = any(pos(:,:)');
             
             % Get the significant times
             index = (any(stat.negclusterslabelmat == neg_signif_clust(t)));
             time_for_topo = stat.time(index');
-            
+                
             % Plot
-            [x,y] = find(ismember(stat.negclusterslabelmat, cluster_n));
-            figure;plot(GA_old_mmf.time,mean(GA_old_mmf.avg(sort(unique(x)),:)),'g','LineWidth',5) %average over channels within the cluster
+            [x,y] = find(pos);
+            figure; 
+            plot(GA_old_mmf.time,mean(GA_old_mmf.avg(sort(unique(x)),:)),'g','LineWidth',5); %average over channels within the cluster
+            hold on;
+            plot(GA_young_mmf.time,mean(GA_young_mmf.avg(sort(unique(x)),:)),'m','LineWidth',5);
             ylim([-1e-15 1.5e-15]);
-            hold on
-            plot(GA_young_mmf.time,mean(GA_young_mmf.avg(sort(unique(x)),:)),'m','LineWidth',5)
             patch([min(y)/1000 min(y)/1000 max(y)/1000 max(y)/1000],[min(ylim) max(ylim) max(ylim) min(ylim)],'k','FaceAlpha',0.1) %shade between time limits of cluster
             %xlim([-0.1 0.5]) %zoom in
             title(sprintf('Cluster Time:  %.3fs to %.3fs\n(p = %.3f)', ...
-                time_for_topo(1),time_for_topo(end), stat.negclusters(cluster_n).prob));
+                time_for_topo(1),time_for_topo(end), stat.negclusters(t).prob));
             xlabel('Time (sec)');
             ylabel('Amplitude (Tesla/cm^{2})')
             legend('Older MMF','Younger MMF', 'Location','northwest')
@@ -720,6 +723,40 @@ if isfield(stat,'negclusters')
             if strcmp(save_to_file,'yes')
                 disp('Saving figure to .png file');
                 print(sprintf([output_path 'MMF_young-vs-old_neg_cluster_%d'], t),'-dpng');
+            else
+                disp('Not saving figure to file');
+            end
+                
+            % Topoplot
+            cfg                  = [];
+            cfg.interpolation    = 'v4';
+            cfg.marker           = 'off';
+            cfg.highlight        = 'on';
+            cfg.highlightchannel = stat.label(highlight_chan);
+            cfg.highlightsymbol  = '.';
+            cfg.highlightsize   = 20;
+            cfg.xlim            = [time_for_topo(1) time_for_topo(end)];
+            %   cfg.zlim            = 'maxabs';
+            %cfg.zlim            = [-5 5];
+            cfg.comment         = 'no';
+            cfg.fontsize        = 6;
+            cfg.layout          = lay;
+            cfg.parameter       = 'stat';
+            figure;colorbar
+            ft_topoplotER(cfg,stat); hold on;
+            ft_hastoolbox('brewermap', 1);
+            colormap(flipud(brewermap(64,'RdBu'))) % change the colormap
+
+            % Give the title
+            title(sprintf('Cluster Time:  %.3fs to %.3fs\n(p = %.3f)', ...
+                time_for_topo(1),time_for_topo(end), stat.negclusters(t).prob));
+
+            set(gca,'fontsize', 20);
+
+            % Save as png
+            if strcmp(save_to_file,'yes')
+                disp('Saving figure to .png file');
+                print(sprintf([output_path 'MMF_young-vs-old_topoplot_neg_cluster_%d'], t), '-dpng','-r200');
             else
                 disp('Not saving figure to file');
             end
