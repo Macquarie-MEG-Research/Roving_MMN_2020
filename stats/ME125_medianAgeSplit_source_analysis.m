@@ -10,13 +10,15 @@
 
 % = PLEASE SPECIFY =
 
-% (1) run adult or child data?
-thisrun = 'adult'; %'child';
-
-% (2) add necessary paths
+% (1) add necessary paths
 addpath(genpath([pwd '/..'])); % get access to all scripts in current repo
 addpath(genpath('D:/Judy/GitHub/')); % path to MQ_MEG_Scripts & MEMES
 addpath(genpath('C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/')); % path to FT templates
+
+% (2) run adult or child data?
+thisrun = 'child'; %'adult';
+% NOTE: this setting is important for a number of steps (MEMES etc), 
+% not just for selecting paths below
 
 % (3) specify relevant paths below
 if strcmp(thisrun, 'child')
@@ -29,10 +31,11 @@ if strcmp(thisrun, 'child')
     % location of MRI database:
     path_to_MRI_library = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
 
-    % The group(s) of participants to analyse: 
-    % (if you specify two groups, e.g. 'younger', 'older', then these two 
-    % groups will also be compared with each other at the end)
+    % The group(s) of participants to analyse (see below)
     group_list = {'younger', 'older'};
+    
+    % where are the data located inside each subject folder?
+    MEG_folder = '/ReTHM/';
     
 elseif strcmp(thisrun, 'adult')
     % where to read MEG data from:
@@ -44,27 +47,39 @@ elseif strcmp(thisrun, 'adult')
     % location of MRI database:
     path_to_MRI_library = 'D:/Judy/MRI_databases/new_HCP_library_for_MEMES/';
     
-    % The group(s) of participants to analyse: 
-    % (if you specify two groups, e.g. 'younger', 'older', then these two 
-    % groups will also be compared with each other at the end)
-    group_list = {'adult'};    
+    % The group(s) of participants to analyse (see below)
+    group_list = {'adult'}; 
+    
+    % where are the data located inside each subject folder?
+    MEG_folder = '/';
     
 else
-    ft_error('Please specify a valid run option: adult, child.\nScript terminated.\n');
+    error(sprintf('Please specify a valid run option: adult, child.\nScript terminated.\n'));
 end
 
+% (4) The group(s) of participants to analyse: 
+% (if you specify two groups, e.g. 'younger', 'older', then these two 
+% groups will also be compared with each other at the end)
 
-% = SHOULDN'T NEED TO CHANGE THE FOLLOWING =
-
-% These lists are set up for ME125 - change if analysing other studies
+% The following lists are set up for ME125 (roving) Phase 1 - change if analysing other studies
 group.older   = {'2913' '2787' '2697' '2702' '2786' '2716' '2698' '2712' '2872' '2703' '2888' '2811' '2696' '2713' '2904' '2854' '2699' '2858'}; % 18 kids, >=5yo
 group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' '2897' '2683' '2695' '2739' '2810' '2632' '2667' '2875' '2912' '2681'}; % 19 kids, <5yo
 folders = dir([data_path '2*']);
 group.adult = vertcat({folders(:).name});
     
+
+% = ADJUST THE SETTINGS BELOW IF NECESSARY =
+
 % Coreg settings
-coreg_version = 'MEMES_5mm'; % select which version of MEMES results to use
-coreg_quality_check = true; % if 'true', will produce plots of headmodel/mesh/sensors/etc
+if strcmp(thisrun, 'child')
+    coreg_version = 'MEMES_5mm'; % select which version of MEMES results to use
+else
+    coreg_version = 'MEMES'; % select which version of MEMES results to use
+end
+coreg_quality_check = false; % if 'true', will produce plots of headmodel/mesh/sensors/etc
+
+% Use beamformer or mne for source analysis? Acceptable options: 'mne', 'lcmv'
+source_method = 'mne'; %'lcmv';
 
 % Stats settings
 alpha_thresh = 0.05;  % threshold for stats
@@ -77,6 +92,15 @@ aal_atlas = 'ROI_MNI_V4.nii';
 %aal_atlas = 'C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/atlas/aal/ROI_MNI_V4.nii';
     
     
+% = DO NOT CHANGE THE FOLLOWING =
+output_path = [output_path source_method '\\'];
+if strcmp(source_method, 'lcmv')
+    suffix = '';
+else
+    suffix = source_method;
+end
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 2. Start the subject loop - run MEMES & create VE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -89,7 +113,7 @@ folders = dir('2*');
 %% Run MEMES for each subject
 for j=1:length(folders)
     SubjectID = folders(j).name;
-    cd([orig,'/',SubjectID,'/ReTHM/'])
+    cd([orig, '/', SubjectID, MEG_folder])
     
     coreg_output = [pwd '/' coreg_version '/']; % where to store the output from MEMES
 
@@ -97,14 +121,24 @@ for j=1:length(folders)
     if ~exist([coreg_output 'headmodel.mat'], 'file')
         
         % find digitisation files
+        %{
         elp_file  = dir('*.elp'); % find the .elp file
         filename_base = elp_file.name(1:strfind(elp_file.name,'.')-1); % get the base filename (ie. remove suffix)
         elpfile = [filename_base, '.elp'];
         hspfile = [filename_base, '.hsp'];
-        confile = [filename_base, '_B1_denoise_rethm.con'];
-        mrkfile = [filename_base, '_INI.mrk']; % choose which marker file to use
+        mrkfile = [filename_base, '_ini.mrk']; % choose which marker file to use
+        confile = [filename_base, '_B1_denoise_rethm.con'];        
+        %}
+        elp_file  = dir('*.elp');
+        elpfile = elp_file.name;
+        hsp_file  = dir('*.hsp');
+        hspfile = hsp_file.name;
+        mrk_file  = dir('*INI.mrk'); % choose which marker file to use
+        mrkfile = mrk_file.name;
+        con_file  = dir('*.con'); 
+        confile = con_file.name;
 
-        % specify the bad marker coils (max 2) for each subject
+        % MANUALLY SPECIFY the bad marker coils (max 2) for each subject
         % Enter as: {'LPAred','RPAyel','PFblue','LPFwh','RPFblack'}
         bad_coil = ''; 
         if strcmp(SubjectID, '2818') || strcmp(SubjectID, '2853')
@@ -125,9 +159,11 @@ for j=1:length(folders)
         if strcmp(thisrun, 'child')
             [headshape_downsampled] = downsample_headshape_child(hspfile); 
             [grad_trans] = mq_realign_sens(pwd,elpfile,hspfile,confile,mrkfile,bad_coil,realign_method);
-            child_MEMES(pwd, grad_trans, headshape_downsampled, path_to_MRI_library, 3); % do not set a weighting for facial information
+            child_MEMES(pwd, grad_trans, headshape_downsampled, path_to_MRI_library, 3);
         elseif strcmp(thisrun, 'adult')
-            [headshape_downsampled] = downsample_headshape_new(hspfile); 
+            cfg = [];
+            %cfg.facial_info = 'no'; % did not collect facial points during digitisation
+            [headshape_downsampled] = downsample_headshape_new(cfg,hspfile); 
             [grad_trans] = mq_realign_sens(pwd,elpfile,hspfile,confile,mrkfile,bad_coil,realign_method);
             MEMES3(pwd, grad_trans, headshape_downsampled, path_to_MRI_library, 'best', [0.95:0.01:1.05], 5, 3);
         end        
@@ -146,8 +182,14 @@ for j=1:length(folders)
         movefile('*shape*', coreg_output);
         movefile('*model*', coreg_output);
         movefile('*quality*', coreg_output);
-        movefile('*error_age*', coreg_output);
-        movefile('MEMES_output.mat', coreg_output);
+        if strcmp(thisrun, 'child')
+            movefile('*error_age*', coreg_output);
+            movefile('MEMES_output.mat', coreg_output);
+        elseif strcmp(thisrun, 'adult')
+            movefile('*example*', coreg_output);
+            movefile('*scaling*', coreg_output);
+            movefile('*realigned*', coreg_output);
+        end
     end
 end
 
@@ -157,7 +199,7 @@ for j=1:length(folders)
 
     disp('Loading relevant data');
     
-    cd([orig,'/',SubjectID,'/ReTHM/'])
+    cd([orig,'/',SubjectID,MEG_folder])
     load('deviant.mat');
     load('predeviant.mat');
     
@@ -165,19 +207,25 @@ for j=1:length(folders)
     load('headmodel.mat');
     load('sourcemodel3d.mat');
     load('grad_trans.mat');
-    load('MEMES_output.mat');
     
-    % Prepare VE points
-    %
-    % Here we are loading the MRI chosen during MEMES coreg (ages 2-5 to 7-5)
-    load([path_to_MRI_library '/' MEMES_output.MRI_winner...
-        '/mri_realigned.mat']);
+    if strcmp(thisrun, 'child')
+        load('MEMES_output.mat');
     
-    % Transform this MRI based on the two matrices computed during MEMES coreg
-    mri_realigned = ft_transform_geometry(MEMES_output.fid_matrix,...
-        mri_realigned);
-    mri_realigned = ft_transform_geometry(MEMES_output.trans_matrix,...
-        mri_realigned);
+        % Here we are loading the MRI chosen during MEMES coreg (ages 2-5 to 7-5)
+        load([path_to_MRI_library '/' MEMES_output.MRI_winner...
+            '/mri_realigned.mat']);
+
+        % Transform this MRI based on the two matrices computed during MEMES coreg
+        mri_realigned = ft_transform_geometry(MEMES_output.fid_matrix,...
+            mri_realigned);
+        mri_realigned = ft_transform_geometry(MEMES_output.trans_matrix,...
+            mri_realigned);       
+    elseif strcmp(thisrun, 'adult')
+        load('mri_realigned_MEMES.mat');
+        mri_realigned = mri_realigned_MEMES; 
+        % No need to perform transformation here, as MEMES3 has already done
+        % that for you
+    end
     
     % Make a figure to check you've marked LPA and RPA the right way round(!)
     if coreg_quality_check
@@ -232,7 +280,12 @@ for j=1:length(folders)
     cfg                  = [];
     cfg.covariance       = 'yes';
     cfg.vartrllength     = 2;
-    cfg.covariancewindow = [0 0.5];
+    if strcmp(source_method, 'mne')
+        cfg.covariancewindow = [-0.1 0]; % calculate covariance matrix
+                                         % on the timepoints before zero 
+    else
+        cfg.covariancewindow = [0 0.5];
+    end
     avg_deviant          = ft_timelockanalysis(cfg, deviant);
     avg_standard         = ft_timelockanalysis(cfg, predeviant);
     
@@ -245,16 +298,24 @@ for j=1:length(folders)
     cfg                   = [];
     cfg.channel           = deviant.label;
     cfg.grad              = grad_trans;
-    cfg.method            = 'lcmv';
+    cfg.method            = source_method;
     cfg.grid              = grid;
     cfg.headmodel         = headmodel;
-    cfg.lcmv.keepfilter   = 'yes';
-    cfg.lcmv.fixedori     = 'yes';
-    cfg.lcmv.projectnoise = 'yes';
-    %cfg.lcmv.weightnorm    = 'nai';
-    cfg.lcmv.lambda       = '5%';
+    if strcmp(source_method, 'mne')
+        cfg.mne.keepfilter   = 'yes';
+        %cfg.mne.fixedori     = 'no'; % this setting is not supported
+        cfg.mne.prewhiten = 'yes';
+        cfg.mne.lambda    = 3;
+        cfg.mne.scalesourcecov = 'yes'; 
+    else
+        cfg.lcmv.keepfilter   = 'yes';
+        cfg.lcmv.fixedori     = 'yes';
+        cfg.lcmv.projectnoise = 'yes';
+        %cfg.lcmv.weightnorm    = 'nai';
+        cfg.lcmv.lambda       = '5%';
+    end
     sourceall             = ft_sourceanalysis(cfg, avg_combined);
-    
+
     % source localisation for deviant and standard trials using the common
     % spatial filter (not required for ROI analysis)
     % cfg.lcmv.filter        = sourceall.avg.filter;
@@ -392,8 +453,7 @@ for j=1:length(folders)
     limit_idx = [sort(repmat([1:2:length(labels)]',2,1)) sort(repmat([2:2:length(labels)]',2,1))];
     
     
-    for i = 1:length(labels)
-        
+    for i = 1:length(labels)       
         cfg            = [];
         cfg.channel    = labels{i};
         cfg.linewidth  = 6;
@@ -436,8 +496,9 @@ for j=1:length(folders)
         VE_deviant.label{i} = ROIs_label{i};
         VE_deviant.avg(i,:) = ROI_activity_deviant.(ROIs_label{i}).avg;
     end
-    save VE_standard VE_standard
-    save VE_deviant VE_deviant
+    
+    save(['VE_standard' suffix '.mat'], 'VE_standard');
+    save(['VE_deviant' suffix '.mat'], 'VE_deviant');
     
     cd(orig)
 end
@@ -453,6 +514,11 @@ for q=1:length(group_list)
     
     idx   = find(ismember({folders.name},group.(group_list{q})));
     
+    % remove subjects with bad coreg
+    if strcmp(thisrun, 'adult')
+        idx([3,4,5,6,8,10]) = [];
+    end
+    
     % Load the data for all subjects into two arrays
     % Put all of the VEs into a structure: Virtual electrode for deviant, and standard,
     % (avg across all subjects)
@@ -463,10 +529,10 @@ for q=1:length(group_list)
     for sub=1:length(idx)        
         SubjectID = folders(idx(sub)).name;
         disp(SubjectID);
-        cd([orig,'/',SubjectID,'/ReTHM/' coreg_version])
+        cd([orig,'/',SubjectID,MEG_folder,coreg_version])
 
-        load('VE_deviant.mat'); % load each individual's VE D & S, and add to the '..._all' variable
-        load('VE_standard.mat');
+        load(['VE_deviant' suffix '.mat']); % load each individual's VE D & S, and add to the '..._all' variable
+        load(['VE_standard' suffix '.mat']);
         
         VE_deviant_all{sub}  = VE_deviant;
         VE_standard_all{sub} = VE_standard;
@@ -491,9 +557,9 @@ for q=1:length(group_list)
     cfg.parameter = 'individual';
     MMF_all       = ft_math(cfg,VE_deviant_grandavg,VE_standard_grandavg);
     
-    %save ([output_path,'MMF_all_',group_list{q}],'MMF_all')
+    save ([output_path,'MMF_all_',group_list{q}],'MMF_all')
     
-    
+%{    
 % % % %     save (['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/variables/','MMF_all_',group_list{q}],'MMF_all')
 % % % %     
 % % % %     mask_param_all = [];
@@ -627,7 +693,7 @@ for q=1:length(group_list)
 % % % %     end
 % % % %     
 % % % %     print(['/Users/42450500/OneDrive - Macquarie University/phd/data/MEG/ME175/inUse/group/png/', group_list{q},'_VE_S-D-MMF'],'-dpng','-r300');
-% % % %     
+%}    
     %%     Plot S v D
 
     mask_param_all = [];
@@ -712,7 +778,7 @@ for q=1:length(group_list)
         
         % Adjust FontSize
         set(gca,'fontsize', 14);
-        
+        xticks([0:0.1:0.4]);
         
         %%% ADDED below       
         hold on; drawnow;
@@ -726,9 +792,11 @@ for q=1:length(group_list)
         
         % Line width & legend
         lines = findall(h, 'Type','line');
-        legend(flip(lines(2:3)), 'Deviant','Predeviant', 'Location','northwest');    
         set(lines(2:3), 'Linewidth',2); % line thickness
-
+        lgnd = legend(flip(lines(2:3)), 'Deviant','Predeviant', 'Location','southwest'); 
+        set(lgnd,'color','none'); % make the legend background transparent
+        legend('boxoff') % remove the box around legend
+        
     end
     
     print([output_path, 'VE_SvsD_', group_list{q}],'-dpng','-r300');
@@ -744,6 +812,10 @@ end % end of Step 3
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 4. young vs old statistical comparison
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% ONLY RUN THIS SECTION IF there are two groups specified at the top
+if length(group_list) ~= 2
+    error('Note: Only 1 group of participants were specified for analysis. Not performing any group comparison.'); % this will terminate the script
+end
 
 load([output_path 'MMF_all_older.mat'])
 old_mmf = MMF_all;
@@ -764,7 +836,7 @@ for i = 1:length(ROIs_label)
     cfg.numrandomization = 2000;  % NB. Only did 1000 for the sensor level. More computationally difficult to do >1000 for sensor-lvl since more channels to process. Can do way more for source.
     %cfg.clusteralpha    = 0.001;
     cfg.tail             = 0;    % Two sided testing
-    cfg.alpha            = alpha_thresh;
+    cfg.alpha            = 0.1;%alpha_thresh;
     
     % Design Matrix
     design = [ones(1,length(group.older)) 2*ones(1,length(group.younger))];
@@ -780,7 +852,7 @@ for i = 1:length(ROIs_label)
     
 end
 
-save ([output_path 'stat_MMFbyGroup_ROI'], 'stat_MMFbyGrpROI');
+%save ([output_path 'stat_MMFbyGroup_ROI'], 'stat_MMFbyGrpROI');
 
 % check for sig effects
 for i = 1:length(ROIs_label)
@@ -789,25 +861,39 @@ end
 
 
 %% plot MMF: young vs old
-figure;
-set(gcf, 'Position',  [100, 100, 800, 1600]);
 
-cmap   = ['g'; 'm'];
+% PLEASE SPECIFY: plot adult along with kids?
+% (note - the stats were done on younger vs older kids, these were not statistically compared with the adult data)
+PLOT_ADULT = true; %false;
+
+if PLOT_ADULT
+    load([orig '/../Phase1_Source_Results_adult/' source_method '/MMF_all_adult_goodcoreg19.mat']);
+    adult_mmf = MMF_all;
+end
+
+figure; set(gcf, 'Position',  [100, 100, 800, 1600]);
+
+cmap   = [1 0 1; 0 1 0; 0.9 0.4 0.15]; % magenta, green, orange
 
 % For every ROI
 for i = 1:length(labels_full)
 
-    x = old_mmf.time;
+    x = young_mmf.time;
 
     % Calculate mean and 95% confidence intervals for deviants
+    [mean_young, CI_young] = mq_get_confidence_cousineau(squeeze(...
+        young_mmf.individual(:,i,:)));
+    
     [mean_old, CI_old] = mq_get_confidence_cousineau(squeeze(...
         old_mmf.individual(:,i,:)));
 
-    % Calculate mean and 95% confidence intervals for standards
-    [mean_young, CI_young] = mq_get_confidence_cousineau(squeeze(...
-        young_mmf.individual(:,i,:)));
-
-    % to create the bar indicating sig time intervals
+    if PLOT_ADULT
+        [mean_adult, CI_adult] = mq_get_confidence_cousineau(squeeze(...
+            adult_mmf.individual(:,i,:)));
+    end
+ 
+    % to create the bar indicating sig time intervals 
+    % (the sig effects are only for the younger vs older kids comparison!!)
     mask_param                = double(stat_MMFbyGrpROI.(ROIs_label{i}).mask);
     mask_param(mask_param==0) = NaN;
     %         mask_param(mask_param==1) = -1.4e-13;
@@ -820,19 +906,27 @@ for i = 1:length(labels_full)
     % OR
     %     % Plot using boundedline (CIS
     h = subplot(3,2,i);
-    boundedline(x,mean_old,CI_old(2,:),...
-        x,mean_young,...
-        CI_young(2,:),'alpha','transparency',0.3,'cmap',cmap);    
-            
+    if PLOT_ADULT
+        boundedline(x,mean_young,CI_young(2,:),...
+                    x,mean_old,CI_old(2,:),...
+                    x,mean_adult,CI_adult(2,:),...
+                    'alpha','transparency',0.3,'cmap',cmap); 
+    else
+        boundedline(x,mean_young,CI_young(2,:),...
+                    x,mean_old,CI_old(2,:),...
+                    'alpha','transparency',0.3,'cmap',cmap);    
+    end
+    
     % Label and adjust lims
     xlabel('Time (sec)');
     ylabel('Amplitude (Tesla/cm^{2})');        
 
-    xlim([-0.1 0.41]);
+    xlim([-0.1 0.4]);
+    xticks([0:0.1:0.4]);
 
     % Adjust FontSize
     set(gca,'fontsize', 14);
-
+    
     hold on; drawnow;
     plot([0:.001:0.4], mask_param, '-k', 'LineWidth',3);
 
@@ -841,9 +935,18 @@ for i = 1:length(labels_full)
     
     % Line width & legend
     lines = findall(h, 'Type','line');
-    legend(flip(lines(2:3)), 'Older MMF','younger MMF', 'Location','northwest');    
-    set(lines(2:3), 'Linewidth',2); % line thickness
-
+    set(lines(2:end), 'Linewidth',2); % line thickness
+    if PLOT_ADULT
+        lgnd = legend(flip(lines(2:end)), 'Younger MMF','Older MMF','Adult MMF', 'Location','northwest');    
+    else
+        lgnd = legend(flip(lines(2:end)), 'Younger MMF','Older MMF', 'Location','northwest');    
+    end
+    set(lgnd,'color','none'); % make the legend background transparent
+    legend('boxoff') % remove the box around legend
 end
 
-print([output_path, 'MMF_VE_young-vs-old'],'-dpng','-r300');
+if PLOT_ADULT
+    print([output_path, 'MMF_VE_young-old-adult'],'-dpng','-r300');
+else
+    print([output_path, 'MMF_VE_young-vs-old'],'-dpng','-r300');
+end
