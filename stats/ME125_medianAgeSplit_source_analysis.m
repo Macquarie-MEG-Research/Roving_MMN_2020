@@ -30,12 +30,12 @@ group_list = {'younger', 'older'}; % split kids into two groups by age
 % (3) Specify relevant paths below
 
 % Where to read MEG data from:
-data_path_child = '../../ME125_roving_Phase1_data_37kids/';
-data_path_adult = '../../ME125_roving_adult_data/';
+data_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_Phase1_data_37kids/';
+data_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_adult_data/';
 
 % Where to store results:
-output_path_child = '../../Phase1_Source_Results_child/';
-output_path_adult = '../../Phase1_Source_Results_adult/'; 
+output_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Source_Results_child/';
+output_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Source_Results_adult/'; 
 
 % Location of MRI database (needed for MEMES):
 MRI_library_child = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
@@ -108,13 +108,14 @@ end
 
 output_path = [output_path source_method ori_suffix '/'];
 
+cd(data_path)
+orig = cd;
+folders = dir('2*');
+
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 2. Start the subject loop - run MEMES & create VE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-cd(data_path)
-orig = cd;
-folders = dir('2*');
 
 %% Run MEMES for each subject
 for j=1:length(folders)
@@ -377,8 +378,8 @@ for j=1:length(folders)
 
         % create virtual sensor for this ROI
         if strcmp(fixedori, 'no') % free dipole orientation
-            VE_S = create_virtual_sensor_freeori(ROI_name, vertices_filters, avg_combined, avg_standard, 1); 
-            VE_D = create_virtual_sensor_freeori(ROI_name, vertices_filters, avg_combined, avg_deviant, 1); 
+            VE_S = create_virtual_sensor_freeori(ROI_name, vertices_all, vertices_filters, avg_combined, avg_standard, 1, 'centroid', headmodel, sourcemodel); 
+            VE_D = create_virtual_sensor_freeori(ROI_name, vertices_all, vertices_filters, avg_combined, avg_deviant, 1, 'centroid', headmodel, sourcemodel); 
         else % fixed dipole orientation
             VE_S = create_virtual_sensor_Centroid(ROI_name, vertices_all, vertices_filters, avg_combined, avg_standard, 1, headmodel, sourcemodel);
             VE_D = create_virtual_sensor_Centroid(ROI_name, vertices_all, vertices_filters, avg_combined, avg_deviant, 1, headmodel, sourcemodel);

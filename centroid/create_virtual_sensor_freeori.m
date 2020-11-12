@@ -7,16 +7,28 @@
 % step (2): do a vector combination at every time sample, in order to 
 % combine into 1 timecourse (only keep the vector magnitude, discard the orientation)
 % step (3): collapse all vertices into one VE by taking a plain average
-% over all vertices (the magnitude of activity is positive at all vertices)
+% over all vertices (the magnitude of activity is positive at all
+% vertices), or a weighted average (i.e. centroid method)
 %
 % @param vertices_filters: 3 x channel x vertex (i.e. for each vertex
 %                          in this ROI, 3 sets of weights are provided)
 % @param erf_combined:     average erf across all 4 conditions
 % @param erf:              separate erf for each condition
+% @param ROI_method:       'plainavg' or 'centroid'
+% @param headmodel,sourcemodel: only required if using 'centroid' method
+%                               (otherwise can just supply [])
 %
-function VE = create_virtual_sensor_freeori(ROI_name, vertices_filters, erf_combined, erf, conds)
+function VE = create_virtual_sensor_freeori(ROI_name, vertices, vertices_filters, erf_combined, erf, conds, ROI_method, headmodel, sourcemodel)
     VE = [];
-
+    
+    if strcmp(ROI_method, 'centroid')
+        % compute the coordinates of the centroid
+        vertices_coords = get_coordinates_for_vertices(sourcemodel, vertices); % coordinates are in cm
+        centroid = find_centroid(vertices_coords); % compute the centroid of this ROI 
+        %plot_ROI_centre_of_mass(ROI_name, vertices_coords, centroid, headmodel); % for quality check
+    end
+    
+    
     % each cycle handles one cond
     for i = conds
         all_vertices_timecourses = [];
@@ -35,10 +47,23 @@ function VE = create_virtual_sensor_freeori(ROI_name, vertices_filters, erf_comb
             all_vertices_timecourses = [all_vertices_timecourses; timecourse_combined];
         end
 
-        % take a plain average over all vertices
-        % can also try PCA
-        VE_timecourse = mean(all_vertices_timecourses);
-
+        if strcmp(ROI_method, 'plainavg')
+            % take a plain average over all vertices
+            VE_timecourse = mean(all_vertices_timecourses);
+        elseif strcmp(ROI_method, 'centroid')
+            % weight the timecourse for each vertex by its distance to centre
+            timecourses_weighted = [];
+            for vertex = 1:size(vertices_coords,1) % each cycle processes one vertex
+                distance = pdist([vertices_coords(vertex,:).*10 ; centroid.*10]); % calculate distance to centre in mm
+                timecourses_weighted(vertex,:) = exp((-distance.^2)./400) .* all_vertices_timecourses(vertex,:); % weight
+            end
+            % take the mean of all the weighted timecourses (i.e. collapse into one timecourse)
+            VE_timecourse = mean(timecourses_weighted, 1); 
+        else
+            error('Error: invalid ROI method. Supported options: plainavg, centroid.\n');
+        end
+        % can also try PCA method
+        
         % put it into a timelock structure for later calling ft_timelockstatistics (in stats_ROI.m)
         VE.time = erf.time;
         VE.avg = VE_timecourse;
