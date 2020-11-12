@@ -10,65 +10,52 @@
 
 % = PLEASE SPECIFY =
 
-% (1) add necessary paths
-addpath(genpath([pwd '/..'])); % get access to all scripts in current repo
+% (1) Add necessary paths
+addpath(genpath([pwd '/../'])); % get access to all scripts in current repo
 addpath(genpath('D:/Judy/GitHub/')); % path to MQ_MEG_Scripts & MEMES
 addpath(genpath('C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/')); % path to FT templates
 
-% (2) run adult or child data?
+% (2) Run adult or child data?
 thisrun = 'child'; %'adult';
 % NOTE: this setting is important for a number of steps (MEMES etc), 
-% not just for selecting paths below
+% not just for setting the appropriate paths below
 
-% (3) specify relevant paths below
-if strcmp(thisrun, 'child')
-    % where to read MEG data from:
-    data_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\ME125_roving_Phase1_data_37kids\\';
+% The group(s) of participants to analyse: (see lists below)
+% If you specify two groups, e.g. {'younger', 'older'}, then these two 
+% groups will also be compared with each other at the end.
+group_list = {'younger', 'older'}; % split kids into two groups by age
+%group_list = {'child'}; % all kids in one group
+%group_list = {'adult'}; 
     
-    % where to store results:
-    output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Source_Results_child\\'; % full path required on Windows, due to back-slash issues
-    
-    % location of MRI database:
-    path_to_MRI_library = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
+% (3) Specify relevant paths below
 
-    % The group(s) of participants to analyse (see below)
-    group_list = {'younger', 'older'};
-    
-    % where are the data located inside each subject folder?
-    MEG_folder = '/ReTHM/';
-    
-elseif strcmp(thisrun, 'adult')
-    % where to read MEG data from:
-    data_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\ME125_roving_adult_data\\';
+% Where to read MEG data from:
+data_path_child = '../../ME125_roving_Phase1_data_37kids/';
+data_path_adult = '../../ME125_roving_adult_data/';
 
-    % where to store results:
-    output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Source_Results_adult\\'; 
+% Where to store results:
+output_path_child = '../../Phase1_Source_Results_child/';
+output_path_adult = '../../Phase1_Source_Results_adult/'; 
 
-    % location of MRI database:
-    path_to_MRI_library = 'D:/Judy/MRI_databases/new_HCP_library_for_MEMES/';
-    
-    % The group(s) of participants to analyse (see below)
-    group_list = {'adult'}; 
-    
-    % where are the data located inside each subject folder?
-    MEG_folder = '/';
-    
-else
-    error(sprintf('Please specify a valid run option: adult, child.\nScript terminated.\n'));
-end
+% Location of MRI database (needed for MEMES):
+MRI_library_child = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
+MRI_library_adult = 'D:/Judy/MRI_databases/new_HCP_library_for_MEMES/';
 
-% (4) The group(s) of participants to analyse: 
-% (if you specify two groups, e.g. 'younger', 'older', then these two 
-% groups will also be compared with each other at the end)
-
+% Where are the data located inside each subject folder?
+MEG_folder_child = '/ReTHM/';
+MEG_folder_adult = '/';
+    
 % The following lists are set up for ME125 (roving) Phase 1 - change if analysing other studies
+% child subjects
 group.older   = {'2913' '2787' '2697' '2702' '2786' '2716' '2698' '2712' '2872' '2703' '2888' '2811' '2696' '2713' '2904' '2854' '2699' '2858'}; % 18 kids, >=5yo
 group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' '2897' '2683' '2695' '2739' '2810' '2632' '2667' '2875' '2912' '2681'}; % 19 kids, <5yo
-folders = dir([data_path '2*']);
+group.child = [group.older group.younger];
+% adult subjects
+folders = dir([data_path_adult '2*']);
 group.adult = vertcat({folders(:).name});
     
 
-% = ADJUST THE SETTINGS BELOW IF NECESSARY =
+% = ADJUST THESE SETTINGS AS NECESSARY =
 
 % Coreg settings
 if strcmp(thisrun, 'child')
@@ -79,7 +66,8 @@ end
 coreg_quality_check = false; % if 'true', will produce plots of headmodel/mesh/sensors/etc
 
 % Use beamformer or mne for source analysis? Acceptable options: 'mne', 'lcmv'
-source_method = 'mne'; %'lcmv';
+source_method = 'lcmv';
+fixedori = 'no'; % 'no' == free orientation (not supported in the mne method, will use default 'yes')
 
 % Stats settings
 alpha_thresh = 0.05;  % threshold for stats
@@ -91,23 +79,41 @@ mri = 'single_subj_T1.nii'; % standard brain from the MNI database
 aal_atlas = 'ROI_MNI_V4.nii';
 %aal_atlas = 'C:/Users/43606024/Documents/MATLAB/fieldtrip-20190702/template/atlas/aal/ROI_MNI_V4.nii';
     
-    
-% = DO NOT CHANGE THE FOLLOWING =
-output_path = [output_path source_method '\\'];
-if strcmp(source_method, 'lcmv')
-    suffix = '';
-else
-    suffix = source_method;
+% Create subfolder in the output location & set appropriate suffix for VE filename (used below)
+ori_suffix = ''; % no suffix if using fixed orientation
+if strcmp(fixedori, 'no')
+    ori_suffix = '_freeori';
 end
+if strcmp(source_method, 'lcmv')
+    suffix = ori_suffix;
+else
+    suffix = ['_' source_method ori_suffix];
+end
+
+
+% Get ready to start
+if strcmp(thisrun, 'child')
+    data_path = data_path_child;
+    output_path = output_path_child;
+    path_to_MRI_library = MRI_library_child;
+    MEG_folder = MEG_folder_child;  
+elseif strcmp(thisrun, 'adult')
+    data_path = data_path_adult;
+    output_path = output_path_adult;
+    path_to_MRI_library = MRI_library_adult;
+    MEG_folder = MEG_folder_adult;
+else
+    error(sprintf('Please specify a valid run option: adult, child.\nScript terminated.\n'));
+end
+
+output_path = [output_path source_method ori_suffix '/'];
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 2. Start the subject loop - run MEMES & create VE
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 cd(data_path)
 orig = cd;
-
 folders = dir('2*');
 
 %% Run MEMES for each subject
@@ -309,7 +315,7 @@ for j=1:length(folders)
         cfg.mne.scalesourcecov = 'yes'; 
     else
         cfg.lcmv.keepfilter   = 'yes';
-        cfg.lcmv.fixedori     = 'yes';
+        cfg.lcmv.fixedori     = fixedori;
         cfg.lcmv.projectnoise = 'yes';
         %cfg.lcmv.weightnorm    = 'nai';
         cfg.lcmv.lambda       = '5%';
@@ -361,15 +367,22 @@ for j=1:length(folders)
             % add vertices from the current parcel to the overall list
             vertices_all = [vertices_all; vertices];
         end
-        % for each vertex, get the spatial filter (i.e. set of weights) for it
-        vertices_filters = cat(1, sourceall.avg.filter{vertices_all});
-        %vertices_filters_target = cat(1, source_standard.avg.filter{vertices_all});
         
-        %fprintf ('k = %d\n', k);
-        
-        % create virtual sensor for this ROI in cue window
-        VE_S = create_virtual_sensor_Centroid(ROI_name, vertices_all, vertices_filters, avg_combined, avg_standard, 1, headmodel, sourcemodel);
-        VE_D = create_virtual_sensor_Centroid(ROI_name, vertices_all, vertices_filters, avg_combined, avg_deviant, 1, headmodel, sourcemodel);
+        % get the spatial filter (i.e. set of weights) for each vertex
+        if strcmp(fixedori, 'no') % for free orientation, there are 3 sets of weights (1 on each axis) for each vertex
+            vertices_filters = cat(3, sourceall.avg.filter{vertices_all}); 
+        else % for fixed orientation, there is 1 set of weights for each vertex
+            vertices_filters = cat(1, sourceall.avg.filter{vertices_all});
+        end
+
+        % create virtual sensor for this ROI
+        if strcmp(fixedori, 'no') % free dipole orientation
+            VE_S = create_virtual_sensor_freeori(ROI_name, vertices_filters, avg_combined, avg_standard, 1); 
+            VE_D = create_virtual_sensor_freeori(ROI_name, vertices_filters, avg_combined, avg_deviant, 1); 
+        else % fixed dipole orientation
+            VE_S = create_virtual_sensor_Centroid(ROI_name, vertices_all, vertices_filters, avg_combined, avg_standard, 1, headmodel, sourcemodel);
+            VE_D = create_virtual_sensor_Centroid(ROI_name, vertices_all, vertices_filters, avg_combined, avg_deviant, 1, headmodel, sourcemodel);
+        end
         
         if ~isempty(VE_S) % successful
             ROI_activity_standard.(ROI_name) = VE_S;
@@ -836,10 +849,10 @@ for i = 1:length(ROIs_label)
     cfg.numrandomization = 2000;  % NB. Only did 1000 for the sensor level. More computationally difficult to do >1000 for sensor-lvl since more channels to process. Can do way more for source.
     %cfg.clusteralpha    = 0.001;
     cfg.tail             = 0;    % Two sided testing
-    cfg.alpha            = 0.1;%alpha_thresh;
+    cfg.alpha            = alpha_thresh;
     
     % Design Matrix
-    design = [ones(1,length(group.older)) 2*ones(1,length(group.younger))];
+    design = [ones(1,size(old_mmf.individual,1)) 2*ones(1,size(young_mmf.individual,1))];
     cfg.design      = design;
     cfg.ivar        = 1; % row of design matrix that contains independent variable (the conditions)
     %%% EXPLANATION: 'ones' is used to create a matrix. e.g.1., 'ones(4)' creates
@@ -852,7 +865,7 @@ for i = 1:length(ROIs_label)
     
 end
 
-%save ([output_path 'stat_MMFbyGroup_ROI'], 'stat_MMFbyGrpROI');
+save ([output_path 'stat_MMFbyGroup_ROI'], 'stat_MMFbyGrpROI');
 
 % check for sig effects
 for i = 1:length(ROIs_label)
@@ -864,10 +877,10 @@ end
 
 % PLEASE SPECIFY: plot adult along with kids?
 % (note - the stats were done on younger vs older kids, these were not statistically compared with the adult data)
-PLOT_ADULT = true; %false;
+PLOT_ADULT = false;
 
 if PLOT_ADULT
-    load([orig '/../Phase1_Source_Results_adult/' source_method '/MMF_all_adult_goodcoreg19.mat']);
+    load([orig '/../Phase1_Source_Results_adult/' source_method suffix '/MMF_all_adult_goodcoreg19.mat']);
     adult_mmf = MMF_all;
 end
 
