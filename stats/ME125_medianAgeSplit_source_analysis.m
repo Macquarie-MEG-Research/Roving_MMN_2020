@@ -68,6 +68,9 @@ coreg_quality_check = false; % if 'true', will produce plots of headmodel/mesh/s
 % Use beamformer or mne for source analysis? Acceptable options: 'mne', 'lcmv'
 source_method = 'lcmv';
 fixedori = 'no'; % 'no' == free orientation (not supported in the mne method, will use default 'yes')
+if strcmp(source_method, 'mne')
+    fixedori = 'yes';
+end
 
 % Stats settings
 alpha_thresh = 0.05;  % threshold for stats
@@ -310,6 +313,7 @@ for j=1:length(folders)
     cfg.headmodel         = headmodel;
     if strcmp(source_method, 'mne')
         cfg.mne.keepfilter   = 'yes';
+        cfg.mne.fixedori     = fixedori;
         %cfg.mne.fixedori     = 'no'; % this setting is not supported
         cfg.mne.prewhiten = 'yes';
         cfg.mne.lambda    = 3;
