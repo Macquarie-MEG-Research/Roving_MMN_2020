@@ -20,8 +20,8 @@ data_path = '..\\..\\ME125_roving_Phase1_data_37kids\\';
 %data_path = '..\\..\\ME125_roving_adult_data\\';
 
 % where to store results:
-output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Results_young-vs-old\\'; % full path required on Windows, due to back-slash issues
-%output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Results_adult\\'; 
+output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Sensor_Results_child\\'; % full path required on Windows, due to back-slash issues
+%output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Sensor_Results_adult\\'; 
 
 % (2) The group(s) of participants to analyse: 
 % (if you specify two groups, e.g. 'younger', 'older', then these two 
