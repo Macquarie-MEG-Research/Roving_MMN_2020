@@ -835,7 +835,7 @@ end % end of Step 3
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % ONLY RUN THIS SECTION IF there are two groups specified at the top
 if length(group_list) ~= 2
-    error('Note: Only 1 group of participants were specified for analysis. Not performing any group comparison.'); % this will terminate the script
+    warning('Only one group of participants were specified for analysis. Not performing any group comparison.'); % this will terminate the script
 end
 
 load([output_path 'MMF_all_older.mat'])
