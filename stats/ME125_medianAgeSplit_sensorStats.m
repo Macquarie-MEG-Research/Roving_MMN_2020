@@ -8,52 +8,88 @@
 %% 1. Set up
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-load('lay.mat');
-load ('neighbours_125.mat')
-
-
 % = PLEASE SPECIFY =
 
-% (1) Folder locations 
-% where to read MEG data from:
-data_path = '..\\..\\ME125_roving_Phase1_data_37kids\\';
-%data_path = '..\\..\\ME125_roving_adult_data\\';
+% (1) Run adult or child data?
+thisrun = 'adult'; %'adult';
 
-% where to store results:
-output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Sensor_Results_child\\'; % full path required on Windows, due to back-slash issues
-%output_path = 'D:\\Judy\\RA_2020\\ARC_Roving_MMN\\Phase1_Sensor_Results_adult\\'; 
+% Which group(s) of participants to analyse? (see lists below)
+%group_list = {'younger', 'older'}; % split kids into two groups by age
+%group_list = {'child'}; % all kids in one group
+group_list = {'adult'}; % all adults in one group
 
-% (2) The group(s) of participants to analyse: 
-% (if you specify two groups, e.g. 'younger', 'older', then these two 
-% groups will also be compared with each other at the end)
+% Note: If you specify two groups here, e.g. {'younger', 'older'}, 
+% then these two groups will also be compared with each other at the end.
+    
+% (2) Specify relevant paths below
 
-group_list = {'younger', 'older'};
-%group_list = {'adult'};
+% Where to read MEG data from:
+data_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_Phase1_data_37kids/';
+data_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_adult_data/';
 
-% The following lists are set up for ME125 (roving) Phase 1 - change if analysing other studies
+% Where to store results:
+output_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Sensor_Results_child/';
+output_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Sensor_Results_adult/'; 
+
+% Where are the data located inside each subject folder?
+MEG_folder_child = '/ReTHM/';
+MEG_folder_adult = '/';
+    
+% Files containing the sensor layout & neighbours
+lay_child = 'lay_child.mat'; 
+lay_adult = 'lay_adult.mat'; 
+neighbours_child = 'neighbours_child.mat';
+neighbours_adult = 'neighbours_adult.mat';
+
+% (3) The following lists are set up for ME125 (roving) Phase 1 -> change if analysing other studies
+
+% Lists of child subjects
 group.older   = {'2913' '2787' '2697' '2702' '2786' '2716' '2698' '2712' '2872' '2703' '2888' '2811' '2696' '2713' '2904' '2854' '2699' '2858'}; % 18 kids, >=5yo
 group.younger = {'2724' '2642' '2866' '2785' '2793' '2738' '2766' '2687' '2629' '2897' '2683' '2695' '2739' '2810' '2632' '2667' '2875' '2912' '2681'}; % 19 kids, <5yo
-folders = dir([data_path '2*']);
+group.child = [group.older group.younger];
+
+% List of adult subjects
+folders = dir([data_path_adult '2*']);
 group.adult = vertcat({folders(:).name});
 
-% (3) Perform baseline correction? if so, specify the baseline interval
+
+% = ADJUST THESE SETTINGS AS NECESSARY =
+
+% Perform baseline correction? if so, specify the baseline interval:
 DO_BASELINE = false;
 ERF_BASELINE = [-0.1 0];
 
-% (4) Other settings
+% Stats settings
 alpha_thresh = 0.05;  % threshold for stats
 x_lims       = [0 0.4];
 save_to_file = 'yes'; % save figures to file?
 
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% 2. Global field power (separately for young & old)
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% = Getting ready to start =
+if strcmp(thisrun, 'child')
+    data_path = data_path_child;
+    output_path = output_path_child;
+    MEG_folder = MEG_folder_child; 
+    load(lay_child);
+    load(neighbours_child);
+elseif strcmp(thisrun, 'adult')
+    data_path = data_path_adult;
+    output_path = output_path_adult;
+    MEG_folder = MEG_folder_adult; 
+    load(lay_adult);
+    load(neighbours_adult);
+else
+    error(sprintf('Please specify a valid run option: adult, child.\nScript terminated.\n'));
+end
 
 cd(data_path)
 orig = cd;
-
 folders = dir('2*');
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% 2. Global field power (separately for young & old)
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 for i=1:length(group_list)
 
@@ -64,11 +100,7 @@ for i=1:length(group_list)
     avg_mmf_planar_all         = [];
 
     for sub=1:length(idx)
-        if strcmp(group_list{i}, 'adult')
-            cd([folders(idx(sub)).name '\\']);
-        else
-            cd([folders(idx(sub)).name '\\ReTHM\\']);
-        end
+        cd([folders(idx(sub)).name, MEG_folder]);
 
         if ~DO_BASELINE % if no baseline correction needed, just load the saved ERFs (ie. ave)
             load('deviant_ave.mat')
@@ -473,7 +505,7 @@ young_stat.negclusters.prob % where pos would = S > D
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % ONLY RUN THIS SECTION IF there are two groups specified at the top
 if length(group_list) ~= 2
-    error('Note: Only 1 group of participants were specified for analysis. Not performing any group comparison.'); % this will terminate the script
+    warning('Only one group of participants were specified for analysis. Not performing any group comparison.'); % this will terminate the script
 end
 
 
