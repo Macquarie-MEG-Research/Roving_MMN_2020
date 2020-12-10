@@ -35,7 +35,7 @@ data_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_Phase1_data_37kid
 data_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_adult_data/';
 
 % Where to store results:
-output_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Source_Results_child/';
+output_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Source_Results_young-vs-old/';
 output_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Source_Results_adult/'; 
 
 % Location of MRI database (needed for MEMES):
@@ -836,6 +836,7 @@ end % end of Step 3
 % ONLY RUN THIS SECTION IF there are two groups specified at the top
 if length(group_list) ~= 2
     warning('Only one group of participants were specified for analysis. Not performing any group comparison.'); % this will terminate the script
+    return;
 end
 
 load([output_path 'MMF_all_older.mat'])

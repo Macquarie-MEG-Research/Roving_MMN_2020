@@ -11,12 +11,12 @@
 % = PLEASE SPECIFY =
 
 % (1) Run adult or child data?
-thisrun = 'adult'; %'adult';
+thisrun = 'child'; %'adult';
 
 % Which group(s) of participants to analyse? (see lists below)
-%group_list = {'younger', 'older'}; % split kids into two groups by age
+group_list = {'younger', 'older'}; % split kids into two groups by age
 %group_list = {'child'}; % all kids in one group
-group_list = {'adult'}; % all adults in one group
+%group_list = {'adult'}; % all adults in one group
 
 % Note: If you specify two groups here, e.g. {'younger', 'older'}, 
 % then these two groups will also be compared with each other at the end.
@@ -28,7 +28,7 @@ data_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_Phase1_data_37kid
 data_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_adult_data/';
 
 % Where to store results:
-output_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Sensor_Results_child/';
+output_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Sensor_Results_young-vs-old/';
 output_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Sensor_Results_adult/'; 
 
 % Where are the data located inside each subject folder?
@@ -506,6 +506,7 @@ young_stat.negclusters.prob % where pos would = S > D
 % ONLY RUN THIS SECTION IF there are two groups specified at the top
 if length(group_list) ~= 2
     warning('Only one group of participants were specified for analysis. Not performing any group comparison.'); % this will terminate the script
+    return;
 end
 
 
@@ -534,27 +535,25 @@ cfg.numrandomization = 1000;
 cfg.minnbchan        = 2; % minimal neighbouring channels
 
 % Design Matrix
-design = [ones(1,length(group.older)) 2*ones(1,length(group.younger))];
+design = [ones(1,length(old_mmf)) 2*ones(1,length(young_mmf))];
 cfg.design      = design; 
 cfg.ivar        = 1; % row of design matrix that contains independent variable (the conditions)
 %%% EXPLANATION: 'ones' is used to create a matrix. e.g.1., 'ones(4)' creates
 %%% a 4x4 matrix of 1s. e.g.2., 'ones(1,4)' creates one row of four 1s. For
 %%% b/w-subjects, comparing a row of group A/old (1s) with group B/young (2s).
 %%% To create the 2s = 2*ones = 2s. Call this 'deisgn' into the cfg settings.
-%%% the ivar is 'group' (with two levels, young vs old
+%%% the ivar is 'group' (with two levels, young vs old)
 
 
 stat_MMFbyGroup           = ft_timelockstatistics(cfg,old_mmf{:},young_mmf{:});
-save ([output_path,'stat_MMFbyGroup'], 'stat_MMFbyGroup');
+%save ([output_path,'stat_MMFbyGroup'], 'stat_MMFbyGroup');
 
 
-% command window will print # pos and neg clusters BEFORE the correction
-% to find out how many remain after correction (run these lines
-% individually):
-%{
-stat_MMFbyGroup.posclusters.prob
-stat_MMFbyGroup.negclusters.prob % error probably cuz no neg clusters
-%}
+% Command window will print # pos and neg clusters BEFORE the correction.
+% To find out how many remain after correction, run these lines individually:
+%stat_MMFbyGroup.posclusters.prob
+%stat_MMFbyGroup.negclusters.prob % error probably cuz no neg clusters
+
 
 %% plot stats
 %{
@@ -717,7 +716,7 @@ if isfield(stat,'negclusters')
         
         % Give the user some feedback in Command Window
         fprintf('There are %d negative Clusters below %.3f alpha level.\n',...
-            alpha_thresh,length(neg_signif_clust));
+            length(neg_signif_clust),alpha_thresh);
 
         for t = 1:length(neg_signif_clust)
             fprintf('Negative Cluster #%d: p = %.3f\n', neg_signif_clust(t),...
@@ -740,21 +739,22 @@ if isfield(stat,'negclusters')
             plot(GA_old_mmf.time,mean(GA_old_mmf.avg(sort(unique(x)),:)),'g','LineWidth',5); %average over channels within the cluster
             hold on;
             plot(GA_young_mmf.time,mean(GA_young_mmf.avg(sort(unique(x)),:)),'m','LineWidth',5);
-            ylim([-1e-15 1.5e-15]);
+            %ylim([-1e-15 1.5e-15]);
+            ylim([-2e-15 6e-15]);
             patch([min(y)/1000 min(y)/1000 max(y)/1000 max(y)/1000],[min(ylim) max(ylim) max(ylim) min(ylim)],'k','FaceAlpha',0.1) %shade between time limits of cluster
-            %xlim([-0.1 0.5]) %zoom in
+            xlim([-0.1 0.4]) %zoom in
             title(sprintf('Cluster Time:  %.3fs to %.3fs\n(p = %.3f)', ...
                 time_for_topo(1),time_for_topo(end), stat.negclusters(t).prob));
             xlabel('Time (sec)');
             ylabel('Amplitude (Tesla/cm^{2})')
-            legend('Older MMF','Younger MMF', 'Location','northwest')
+            legend('Old MMF','Young MMF', 'Location','northwest')
             set(gca,'fontsize', 40);
             set(gcf,'position',[10,10,1400,1000])
 
             % Save as png
             if strcmp(save_to_file,'yes')
                 disp('Saving figure to .png file');
-                print(sprintf([output_path 'MMF_young-vs-old_neg_cluster_%d'], t),'-dpng');
+                print(sprintf([output_path 'MMF_group_comparison_neg_cluster_%d'], t),'-dpng');
             else
                 disp('Not saving figure to file');
             end
@@ -788,7 +788,7 @@ if isfield(stat,'negclusters')
             % Save as png
             if strcmp(save_to_file,'yes')
                 disp('Saving figure to .png file');
-                print(sprintf([output_path 'MMF_young-vs-old_topoplot_neg_cluster_%d'], t), '-dpng','-r200');
+                print(sprintf([output_path 'MMF_group_comparison_topoplot_neg_cluster_%d'], t), '-dpng','-r200');
             else
                 disp('Not saving figure to file');
             end
