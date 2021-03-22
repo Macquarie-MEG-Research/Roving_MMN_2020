@@ -31,12 +31,12 @@ group_list = {'younger', 'older'}; % split kids into two groups by age
 % (3) Specify relevant paths below
 
 % Where to read MEG data from:
-data_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_Phase1_data_37kids/';
-data_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_adult_data/';
+data_path_child = 'D:/Judy/RA_2021/ARC_Roving_MMN/ME125_roving_Phase1_data_37kids/';
+data_path_adult = 'D:/Judy/RA_2021/ARC_Roving_MMN/ME125_roving_adult_data/';
 
 % Where to store results:
-output_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Source_Results_young-vs-old/';
-output_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Source_Results_adult/'; 
+output_path_child = 'D:/Judy/RA_2021/ARC_Roving_MMN/Phase1_Source_Results_young-vs-old/';
+output_path_adult = 'D:/Judy/RA_2021/ARC_Roving_MMN/Phase1_Source_Results_adult/'; 
 
 % Location of MRI database (needed for MEMES):
 MRI_library_child = 'D:/Judy/MRI_databases/database_for_MEMES_child/';
@@ -116,6 +116,7 @@ output_path = [output_path source_method ori_suffix '/'];
 
 cd(data_path)
 orig = cd;
+
 folders = dir('2*');
 
 

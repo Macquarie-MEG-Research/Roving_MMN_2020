@@ -24,12 +24,12 @@ group_list = {'younger', 'older'}; % split kids into two groups by age
 % (2) Specify relevant paths below
 
 % Where to read MEG data from:
-data_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_Phase1_data_37kids/';
-data_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/ME125_roving_adult_data/';
+data_path_child = 'D:/Judy/RA_2021/ARC_Roving_MMN/ME125_roving_Phase1_data_37kids/';
+data_path_adult = 'D:/Judy/RA_2021/ARC_Roving_MMN/ME125_roving_adult_data/';
 
 % Where to store results:
-output_path_child = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Sensor_Results_young-vs-old/';
-output_path_adult = 'D:/Judy/RA_2020/ARC_Roving_MMN/Phase1_Sensor_Results_adult/'; 
+output_path_child = 'D:/Judy/RA_2021/ARC_Roving_MMN/Phase1_Sensor_Results_young-vs-old/';
+output_path_adult = 'D:/Judy/RA_2021/ARC_Roving_MMN/Phase1_Sensor_Results_adult/'; 
 
 % Where are the data located inside each subject folder?
 MEG_folder_child = '/ReTHM/';
@@ -84,6 +84,7 @@ end
 
 cd(data_path)
 orig = cd;
+
 folders = dir('2*');
 
 
